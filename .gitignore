@@ -1,2 +1,4 @@
 .env
 data/output/
+.mypy_cache/
+src/__pycache__/
