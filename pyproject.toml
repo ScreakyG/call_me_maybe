@@ -1,0 +1,18 @@
+[project]
+name = "call-me-maybe"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Francois Gonzalez", email = "francois.gnz@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "flake8>=7.3.0",
+    "mypy>=2.3.1",
+    "numpy>=2.5.2",
+    "pydantic>=2.13.4",
+]
+
+[tool.uv]
+package = false
