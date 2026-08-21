@@ -12,6 +12,9 @@ DEFAULT_OUTPUT_FILE = "data/output/function_calling_results.json"
 
 # class Parameters(BaseModel):
 
+class PromptsInputs(BaseModel):
+    prompt: str = Field(min_length=1)
+
 
 class FunctionsDefinitions(BaseModel):
     model_config = ConfigDict(strict=True, extra="forbid")
@@ -29,10 +32,14 @@ def verify_json_file(file_type: str, filename: str, file: Any) -> bool:
     try:
 
         for items in data:
-            # print(items)
-            if file_type == 'functions_definition':
-                parsed_data = FunctionsDefinitions.model_validate_json(json.dumps(items))
-                print(parsed_data)
+            match (file_type):
+                case 'functions_definition':
+                    parsed_data = FunctionsDefinitions.model_validate_json(json.dumps(items))
+                    print(parsed_data)
+
+                case 'input':
+                    parsed_data = PromptsInputs.model_validate_json(json.dumps(items))
+                    print(parsed_data)
 
     except ValidationError as error:
         print(f"JSON Schema is not valid for {file_type} file in : '{filename}'")
