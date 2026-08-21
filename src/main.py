@@ -10,7 +10,9 @@ DEFAULT_FUNCTIONS_FILE = "data/input/functions_definition.json"
 DEFAULT_PROMPTS_FILE = "data/input/function_calling_tests.json"
 DEFAULT_OUTPUT_FILE = "data/output/function_calling_results.json"
 
+
 # class Parameters(BaseModel):
+
 
 class PromptsInputs(BaseModel):
     prompt: str = Field(min_length=1)
@@ -25,7 +27,11 @@ class FunctionsDefinitions(BaseModel):
     returns: dict[str, str] = Field(min_length=1)
 
 
-def verify_json_file(file_type: str, filename: str, file: Any) -> bool:
+parsed_prompts: list[PromptsInputs] = []
+functions_defs: list[FunctionsDefinitions] = []
+
+# Verify that input files are json and that they contains exepected data
+def parse_json_file(file_type: str, filename: str, file: Any) -> bool:
 
     data = json.load(file)
 
@@ -35,16 +41,19 @@ def verify_json_file(file_type: str, filename: str, file: Any) -> bool:
             match (file_type):
                 case 'functions_definition':
                     parsed_data = FunctionsDefinitions.model_validate_json(json.dumps(items))
-                    print(parsed_data)
+                    # print(parsed_data)
+                    functions_defs.append(parsed_data)
 
                 case 'input':
                     parsed_data = PromptsInputs.model_validate_json(json.dumps(items))
-                    print(parsed_data)
+                    parsed_prompts.append(parsed_data)
+                    # print(parsed_data)
 
     except ValidationError as error:
         print(f"JSON Schema is not valid for {file_type} file in : '{filename}'")
         print(error)
 
+# Open the input files
 def load_input_files(file_config: dict[str, str]) -> None:
     # print(f"Functions definition file: {file_config['functions_definition']}")
     # print(f"Prompt inputs file: {file_config['input']}")
@@ -56,7 +65,7 @@ def load_input_files(file_config: dict[str, str]) -> None:
             # print(key, value)
             if key in ['functions_definition', 'input']:
                 with open(value, "r") as file:
-                    verify_json_file(key, value, file)
+                    parse_json_file(key, value, file)
 
         except OSError as error:
             print(error, file=sys.stderr)
@@ -64,6 +73,7 @@ def load_input_files(file_config: dict[str, str]) -> None:
         except json.decoder.JSONDecodeError:
             print(f"Error: Invalid JSON format in the file: {value}")
 
+# Verify if arguments where provided and parse them
 def parse_args(argv: list[str] | None = None) -> dict[str, str]:
     parser = argparse.ArgumentParser(
         prog="Call Me Maybe",
@@ -97,9 +107,13 @@ def parse_args(argv: list[str] | None = None) -> dict[str, str]:
 
 
 def main() -> None:
+
     file_config = parse_args()
     load_input_files(file_config)
 
+    print("functions_defs:", functions_defs)
+    print()
+    print("prompts:", parsed_prompts)
 
 if __name__ == "__main__":
     main()
