@@ -1,2 +1,2 @@
 [flake8]
-extend_exclude = .venv
+extend_exclude = .venv llm_sdk

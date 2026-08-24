@@ -9,6 +9,7 @@ authors = [
 requires-python = ">=3.12"
 dependencies = [
     "flake8>=7.3.0",
+    "llm-sdk",
     "mypy>=2.3.1",
     "numpy>=2.5.2",
     "pydantic>=2.13.4",
@@ -16,3 +17,11 @@ dependencies = [
 
 [tool.uv]
 package = false
+
+[tool.uv.workspace]
+members = [
+    "llm_sdk",
+]
+
+[tool.uv.sources]
+llm-sdk = { workspace = true }

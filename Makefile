@@ -36,5 +36,6 @@ clean:
 	@echo "Cleaning Repo.."
 	@rm -rf .mypy_cache
 	@rm -rf ./src/__pycache__
+	@rm -rf ./llm_sdk/llm_sdk/__pycache__
 
 re: clean run
