@@ -1,13 +1,16 @@
 from enum import Enum
 from pydantic import BaseModel, ConfigDict, Field
 
+
 class PromptInput(BaseModel):
     prompt: str = Field(min_length=1)
+
 
 class ParameterType(str, Enum):
     NUMBER = "number"
     STRING = "string"
     BOOL = "bool"
+
 
 class ParameterDefinition(BaseModel):
     model_config = ConfigDict(extra="forbid")

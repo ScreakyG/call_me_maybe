@@ -15,6 +15,9 @@ dependencies = [
     "pydantic>=2.13.4",
 ]
 
+[tool.mypy]
+exclude="(llm_sdk/)"
+
 [tool.uv]
 package = false
 

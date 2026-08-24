@@ -1,13 +1,14 @@
 from pydantic import ValidationError
 import argparse
 import sys
-import llm_sdk
+# import llm_sdk
 import json
 from src.json_parsing import parse_input_files
 
 DEFAULT_FUNCTIONS_FILE = "data/input/functions_definition.json"
 DEFAULT_PROMPTS_FILE = "data/input/function_calling_tests.json"
 DEFAULT_OUTPUT_FILE = "data/output/function_calling_results.json"
+
 
 # Verify if arguments where provided and parse them
 def parse_args(argv: list[str] | None = None) -> dict[str, str]:
@@ -42,7 +43,6 @@ def parse_args(argv: list[str] | None = None) -> dict[str, str]:
     return vars(parser.parse_args(argv))
 
 
-
 def main() -> None:
     try:
         file_config = parse_args()
@@ -53,16 +53,15 @@ def main() -> None:
         print("prompts:", parsed_prompts)
 
     except OSError as error:
-        print(f"File not found: {error.filename}")
+        print(f"File not found: {error.filename}", file=sys.stderr)
         print(error, file=sys.stderr)
 
     except json.decoder.JSONDecodeError as error:
         print(f"Invalid JSON syntax: {error} {error.doc}", file=sys.stderr)
 
     except ValidationError as error:
-        print(f"Invalid JSON data structure:")
-        print(error)
-
+        print("Invalid JSON data structure:", file=sys.stderr)
+        print(error, file=sys.stderr)
 
     # model = llm_sdk.Small_LLM_Model()
     # print(model)

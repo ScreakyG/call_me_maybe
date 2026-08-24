@@ -3,7 +3,9 @@ import json
 
 
 # Try to open input files and validate the json_content
-def parse_input_files(file_config: dict[str, str]) -> tuple[list[PromptInput], list[FunctionDefinition]]:
+def parse_input_files(
+        file_config: dict[str, str]
+) -> tuple[list[FunctionDefinition], list[PromptInput]]:
 
     parsed_prompts: list[PromptInput] = []
     functions_defs: list[FunctionDefinition] = []
@@ -18,11 +20,11 @@ def parse_input_files(file_config: dict[str, str]) -> tuple[list[PromptInput], l
                 for items in data:
                     match (key):
                         case 'functions_definition':
-                            parsed_data = FunctionDefinition.model_validate(items)
-                            functions_defs.append(parsed_data)
+                            function = FunctionDefinition.model_validate(items)
+                            functions_defs.append(function)
 
                         case 'input':
-                            parsed_data = PromptInput.model_validate(items)
-                            parsed_prompts.append(parsed_data)
+                            prompt = PromptInput.model_validate(items)
+                            parsed_prompts.append(prompt)
 
     return functions_defs, parsed_prompts
