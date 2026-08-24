@@ -16,7 +16,15 @@ dependencies = [
 ]
 
 [tool.mypy]
-exclude="(llm_sdk/)"
+exclude= [
+    "llm_sdk"
+]
+
+[tool.flake8]
+extend-exclude = [
+    ".venv",
+    "llm_sdk"
+]
 
 [tool.uv]
 package = false
@@ -28,3 +36,8 @@ members = [
 
 [tool.uv.sources]
 llm-sdk = { workspace = true }
+
+[dependency-groups]
+dev = [
+    "flake8-pyproject>=1.2.4",
+]
