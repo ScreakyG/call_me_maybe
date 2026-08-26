@@ -1,13 +1,18 @@
 from pydantic import ValidationError
 import argparse
 import sys
-# import llm_sdk
+import llm_sdk
 import json
 from src.json_parsing import parse_input_files
+
+# Remove later
+import time
 
 DEFAULT_FUNCTIONS_FILE = "data/input/functions_definition.json"
 DEFAULT_PROMPTS_FILE = "data/input/function_calling_tests.json"
 DEFAULT_OUTPUT_FILE = "data/output/function_calling_results.json"
+
+model = llm_sdk.Small_LLM_Model()
 
 
 # Verify if arguments where provided and parse them
@@ -43,6 +48,52 @@ def parse_args(argv: list[str] | None = None) -> dict[str, str]:
     return vars(parser.parse_args(argv))
 
 
+def generate_next_token(input_ids: list[int], allowed_tokens_ids: list[int]) -> int:
+
+    logits: list[float] = model.get_logits_from_input_ids(input_ids)
+    # print(logits)
+
+    next_token_id = max(
+        range(len(logits)),
+        key=logits.__getitem__
+    )
+
+    print("next_token_id:", next_token_id)
+    print("next_token_decoded:", model.decode([next_token_id]))
+
+    # return allowed_tokens_ids[0]
+
+    return next_token_id
+
+
+def get_allowed_tokens_ids() -> list[int]:
+
+    allowed_tokens = "{"
+    allowed_tokens_encoded = model.encode(allowed_tokens)
+    print(allowed_tokens_encoded)
+
+    allowed_tokens_ids: list[int] = allowed_tokens_encoded[0].tolist()
+
+    return allowed_tokens_ids
+
+
+def llm_testing() -> None:
+
+    prompt = "What is the captal of France ?"
+    encoded = model.encode(prompt)
+    input_ids: list[int] = encoded[0].tolist()
+    # print("liste des tokens_ids:", input_ids)
+
+    allowed_tokens_ids = get_allowed_tokens_ids()
+
+    while True:
+        print("Current completion = ", model.decode(input_ids))
+
+        next_token_id = generate_next_token(input_ids, allowed_tokens_ids)
+        input_ids.append(next_token_id)
+
+        time.sleep(2) # Remove this later , just to slow down generation since its going too fast now
+
 def main() -> None:
     try:
         file_config = parse_args()
@@ -63,10 +114,16 @@ def main() -> None:
         print("Invalid JSON data structure:", file=sys.stderr)
         print(error, file=sys.stderr)
 
-    # model = llm_sdk.Small_LLM_Model()
-    # print(model)
-    # result = model.encode("Hello World one more token,2")
-    # print(result)
+
+    llm_testing()
+
+    # vocab_file = model.get_path_to_vocab_file()
+    # with open(model.get_path_to_vocab_file(), "r", encoding="utf-8") as file:
+        # vocab: dict[str, int] = json.load(file)
+
+    # print(vocab)
+    # print(vocab['Hello'])
+
 
 
 if __name__ == "__main__":
