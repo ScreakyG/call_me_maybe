@@ -5,6 +5,8 @@ import llm_sdk
 import json
 from src.json_parsing import parse_input_files
 
+from src.models import PromptInput, FunctionDefinition
+
 # Remove later
 import time
 
@@ -58,50 +60,80 @@ def generate_next_token(input_ids: list[int], allowed_tokens_ids: list[int]) -> 
         key=logits.__getitem__
     )
 
-    print("next_token_id:", next_token_id)
-    print("next_token_decoded:", model.decode([next_token_id]))
+    print("next_token_id =", next_token_id)
+    print("next_token_decoded =", model.decode([next_token_id]))
 
     # return allowed_tokens_ids[0]
 
     return next_token_id
 
 
-def get_allowed_tokens_ids() -> list[int]:
 
-    allowed_tokens = "{"
+def get_allowed_tokens_ids(position: int) -> list[int]:
+
+    boilerplate = '{"prompt": "What is the sum of 2 and 3?", "name": "fn_add_numbers"}'
+
+    allowed_tokens = boilerplate[position]
+    print("allowed_tokens =", allowed_tokens)
+
     allowed_tokens_encoded = model.encode(allowed_tokens)
-    print(allowed_tokens_encoded)
-
     allowed_tokens_ids: list[int] = allowed_tokens_encoded[0].tolist()
+    print("allowed_tokens_ids =", allowed_tokens_ids)
+
 
     return allowed_tokens_ids
 
 
-def llm_testing() -> None:
+def build_prompt(functions_def: list[FunctionDefinition], parsed_prompts: list[PromptInput]) -> str:
 
-    prompt = "What is the captal of France ?"
-    encoded = model.encode(prompt)
+    # print(functions_def[0].model_dump_json(indent=2))
+
+    prompt_base = "Given the following list of functions, you need to choose the one that will be the most suited to answer the user question, here is the functions list: \n"
+    prompt_base += "\n".join(function.model_dump_json(indent=2) for function in functions_def)
+
+    prompt_base += f"\n Here is the user prompt: {parsed_prompts[0].prompt}"
+
+    return (prompt_base)
+
+def llm_testing(functions_def: list[FunctionDefinition], parsed_prompts: list[PromptInput]) -> None:
+
+    # input_tokens = "What is the captal of France ?"
+    input_tokens = build_prompt(functions_def, parsed_prompts)
+
+    encoded = model.encode(input_tokens)
     input_ids: list[int] = encoded[0].tolist()
     # print("liste des tokens_ids:", input_ids)
 
-    allowed_tokens_ids = get_allowed_tokens_ids()
+
+    output_tokens = ""
+    position = 0
 
     while True:
-        print("Current completion = ", model.decode(input_ids))
+
+        print("\n==================================\n")
+        # print("Current completion = ", model.decode(input_ids))
+
+        allowed_tokens_ids = get_allowed_tokens_ids(position)
 
         next_token_id = generate_next_token(input_ids, allowed_tokens_ids)
         input_ids.append(next_token_id)
 
-        time.sleep(2) # Remove this later , just to slow down generation since its going too fast now
+
+        output_tokens += model.decode([next_token_id])
+        print(output_tokens)
+
+        position += 1
+
+        time.sleep(1) # Remove this later , just to slow down generation since its going too fast now
 
 def main() -> None:
     try:
         file_config = parse_args()
         functions_defs, parsed_prompts = parse_input_files(file_config)
 
-        print("functions_defs:", functions_defs)
-        print()
-        print("prompts:", parsed_prompts)
+        # print("functions_defs:", functions_defs)
+        # print()
+        # print("prompts:", parsed_prompts)
 
     except OSError as error:
         print(f"File not found: {error.filename}", file=sys.stderr)
@@ -115,7 +147,7 @@ def main() -> None:
         print(error, file=sys.stderr)
 
 
-    llm_testing()
+    llm_testing(functions_defs, parsed_prompts)
 
     # vocab_file = model.get_path_to_vocab_file()
     # with open(model.get_path_to_vocab_file(), "r", encoding="utf-8") as file:

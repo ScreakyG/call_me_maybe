@@ -25,3 +25,11 @@ class FunctionDefinition(BaseModel):
     description: str = Field(min_length=1)
     parameters: dict[str, ParameterDefinition] = Field(min_length=1)
     returns: ParameterDefinition
+
+
+class OutputBoilerPlate(BaseModel):
+    model_config = ConfigDict(strict=True, extra="forbid")
+
+    prompt: str
+    name: str
+    parameters: str
