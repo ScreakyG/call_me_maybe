@@ -84,21 +84,27 @@ def get_allowed_tokens_ids(position: int) -> list[int]:
     return allowed_tokens_ids
 
 
-def build_prompt(functions_def: list[FunctionDefinition], parsed_prompts: list[PromptInput]) -> str:
+def build_prompt(functions_def: list[FunctionDefinition], user_prompt: str) -> str:
 
     # print(functions_def[0].model_dump_json(indent=2))
 
-    prompt_base = "Given the following list of functions, you need to choose the one that will be the most suited to answer the user question, here is the functions list: \n"
+    prompt_base = (
+        "Choose the function that best matches the user request.\n"
+        "You must select one function from this provided list: \n"
+    )
+
     prompt_base += "\n".join(function.model_dump_json(indent=2) for function in functions_def)
 
-    prompt_base += f"\n Here is the user prompt: {parsed_prompts[0].prompt}"
+    prompt_base += f"\n User request: {user_prompt}"
+
+    print(prompt_base)
 
     return (prompt_base)
 
 def llm_testing(functions_def: list[FunctionDefinition], parsed_prompts: list[PromptInput]) -> None:
 
     # input_tokens = "What is the captal of France ?"
-    input_tokens = build_prompt(functions_def, parsed_prompts)
+    input_tokens = build_prompt(functions_def, parsed_prompts[2].prompt)
 
     encoded = model.encode(input_tokens)
     input_ids: list[int] = encoded[0].tolist()
