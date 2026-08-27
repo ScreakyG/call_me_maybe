@@ -27,9 +27,34 @@ class FunctionDefinition(BaseModel):
     returns: ParameterDefinition
 
 
-class OutputBoilerPlate(BaseModel):
-    model_config = ConfigDict(strict=True, extra="forbid")
+class GenerationState:
+    def __init__(self, function_defs: list[FunctionDefinition]):
+        self.function_defs = function_defs
+        self.output = ""
+        self.current_function_name = ""
+        self.selected_function: FunctionDefinition | None = None
+        self.complete = False
 
-    prompt: str
-    name: str
-    parameters: str
+    def get_compatible_function_names(self, prefix: str) -> list[str]:
+        compatible_functions: list[str] = []
+
+        for function in self.function_defs:
+            if function.name.startswith(prefix):
+                compatible_functions.append(function.name)
+
+        return compatible_functions
+
+
+    def matches_function_name(self, name: str) -> bool:
+        return any(
+            function.name == name
+            for function in self.function_defs
+        )
+
+
+    def can_append_to_function_name(self, fragment: str) -> bool:
+        candidate = self.current_function_name + fragment
+
+        return bool(
+            self.get_compatible_function_names(candidate)
+        )

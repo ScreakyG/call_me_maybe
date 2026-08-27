@@ -5,7 +5,7 @@ import llm_sdk
 import json
 from src.json_parsing import parse_input_files
 
-from src.models import PromptInput, FunctionDefinition
+from src.models import PromptInput, FunctionDefinition, GenerationState
 
 # Remove later
 import time
@@ -79,74 +79,96 @@ def generate_next_token(input_ids: list[int], allowed_tokens_ids: list[int] | No
     return next_token_id
 
 
-
-def get_allowed_tokens_ids(function_defs: list[FunctionDefinition]) -> list[int]:
-
-    # boilerplate = '{"prompt": "What is the sum of 2 and 3?", "name": "fn_add_numbers"}'
-
-    # allowed_tokens = boilerplate[position]
-    # print("allowed_tokens =", allowed_tokens)
-
-    # allowed_tokens_encoded = model.encode(allowed_tokens)
-    # allowed_tokens_ids: list[int] = allowed_tokens_encoded[0].tolist()
-    # print("allowed_tokens_ids =", allowed_tokens_ids)
-
-
-    # Just a test to try if the model can answer only with function names (atm in only allow 'fn')
-    allowed_tokens_ids: set[int] = set()
-    for function in function_defs:
-        function_ids = model.encode(function.name)[0].tolist()
-
-        if function_ids:
-            allowed_tokens_ids.add(function_ids[0])
-
-    return list(allowed_tokens_ids)
-
-
 def build_prompt(functions_def: list[FunctionDefinition], user_prompt: str) -> str:
 
     prompt_base = (
         "Choose the function that best matches the user request.\n"
-        "You must select one function from this provided list: \n"
+        "You must select one function from this provided list:\n"
     )
 
     prompt_base += "\n".join(function.model_dump_json(indent=2) for function in functions_def)
 
     prompt_base += f"\n User request: {user_prompt}"
 
-    print(prompt_base)
+    # print(prompt_base)
 
     return (prompt_base)
 
+
+def get_allowed_tokens_ids(function_defs: list[FunctionDefinition]) -> list[int]:
+
+    allowed_tokens = "dummy"
+    print("allowed_tokens =", allowed_tokens)
+
+    allowed_tokens_encoded = model.encode(allowed_tokens)
+    allowed_tokens_ids: list[int] = allowed_tokens_encoded[0].tolist()
+    print("allowed_tokens_ids =", allowed_tokens_ids)
+
+
+    return list(allowed_tokens_ids)
+
+
+def get_vocab_token_ids() -> list[int]:
+    vocab_file = model.get_path_to_vocab_file()
+
+    with open(vocab_file, "r") as file:
+        json_file = json.load(file)
+
+        tokens_ids = json_file.values()
+
+    return (tokens_ids)
+
+
+def get_allowed_function_name_token_ids(state: GenerationState) -> list[int]:
+
+    allowed_token_ids = []
+    vocab_token_ids = get_vocab_token_ids()
+
+    for token_id in vocab_token_ids:
+        decoded = model.decode([token_id])
+        if decoded and state.can_append_to_function_name(decoded):
+            allowed_token_ids.append(token_id)
+
+    return allowed_token_ids
+
 def llm_testing(functions_def: list[FunctionDefinition], parsed_prompts: list[PromptInput]) -> None:
 
-    # input_tokens = "What is the captal of France ?"
     input_tokens = build_prompt(functions_def, parsed_prompts[2].prompt)
-
     encoded = model.encode(input_tokens)
     input_ids: list[int] = encoded[0].tolist()
-    # print("liste des tokens_ids:", input_ids)
 
 
     output_tokens = ""
 
-    while True:
 
-        print("\n==================================\n")
-        # print("Current completion = ", model.decode(input_ids))
+    state = GenerationState(functions_def)
+    state.current_function_name = "fn_g"
+    allowed_ids = get_allowed_function_name_token_ids(state)
 
-        # allowed_tokens_ids = get_allowed_tokens_ids(functions_def)
-        allowed_tokens_ids = None
-
-        next_token_id = generate_next_token(input_ids, allowed_tokens_ids)
-        input_ids.append(next_token_id)
-
-
-        output_tokens += model.decode([next_token_id])
-        print(output_tokens)
+    print([
+        model.decode([token_id])
+        for token_id in allowed_ids
+    ])
 
 
-        time.sleep(1) # Remove this later , just to slow down generation since its going too fast now
+    # while True:
+
+    #     print("\n==================================\n")
+    #     # print("Current completion = ", model.decode(input_ids))
+
+    #     # allowed_tokens_ids = get_allowed_tokens_ids(functions_def)
+    #     allowed_tokens_ids = None
+
+    #     next_token_id = generate_next_token(input_ids, allowed_tokens_ids)
+    #     input_ids.append(next_token_id)
+
+    #     output_tokens += model.decode([next_token_id])
+
+
+    #     print(output_tokens)
+
+
+    #     time.sleep(0.2) # Remove this later , just to slow down generation since its going too fast now
 
 def main() -> None:
     try:
