@@ -116,7 +116,7 @@ def get_vocab_token_ids() -> list[int]:
 
         tokens_ids = json_file.values()
 
-    return (tokens_ids)
+    return list(tokens_ids)
 
 
 def get_allowed_function_name_token_ids(state: GenerationState) -> list[int]:
@@ -142,7 +142,7 @@ def llm_testing(functions_def: list[FunctionDefinition], parsed_prompts: list[Pr
 
 
     state = GenerationState(functions_def)
-    state.current_function_name = "fn_g"
+    state.current_function_name = "fn_"
     allowed_ids = get_allowed_function_name_token_ids(state)
 
     print([
