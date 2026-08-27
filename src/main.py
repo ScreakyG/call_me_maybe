@@ -55,6 +55,7 @@ def generate_next_token(input_ids: list[int], allowed_tokens_ids: list[int] | No
     logits: list[float] = model.get_logits_from_input_ids(input_ids)
     # print(logits)
 
+
     # Should only select tokens from the allowlist
     if allowed_tokens_ids:
         next_token_id = max(
@@ -71,6 +72,9 @@ def generate_next_token(input_ids: list[int], allowed_tokens_ids: list[int] | No
 
 
     print("allowed_token_ids =", allowed_tokens_ids)
+    print("Allowed tokens=", [model.decode([token]) for token in allowed_tokens_ids])
+
+
     print("next_token_id =", next_token_id)
     print("next_token_decoded =", model.decode([next_token_id]))
 
@@ -133,7 +137,7 @@ def get_allowed_function_name_token_ids(state: GenerationState) -> list[int]:
 
 def llm_testing(functions_def: list[FunctionDefinition], parsed_prompts: list[PromptInput]) -> None:
 
-    input_tokens = build_prompt(functions_def, parsed_prompts[2].prompt)
+    input_tokens = build_prompt(functions_def, parsed_prompts[2].prompt + "\n")
     encoded = model.encode(input_tokens)
     input_ids: list[int] = encoded[0].tolist()
 
@@ -141,34 +145,41 @@ def llm_testing(functions_def: list[FunctionDefinition], parsed_prompts: list[Pr
     output_tokens = ""
 
 
+    # state = GenerationState(functions_def)
+    # state.current_function_name = "fn_"
+    # allowed_ids = get_allowed_function_name_token_ids(state)
+
+    # print([
+    #     model.decode([token_id])
+    #     for token_id in allowed_ids
+    # ])
+
+
     state = GenerationState(functions_def)
-    state.current_function_name = "fn_"
-    allowed_ids = get_allowed_function_name_token_ids(state)
 
-    print([
-        model.decode([token_id])
-        for token_id in allowed_ids
-    ])
+    while True:
+
+        print("\n==================================\n")
+        # print("Current completion = ", model.decode(input_ids))
 
 
-    # while True:
-
-    #     print("\n==================================\n")
-    #     # print("Current completion = ", model.decode(input_ids))
-
-    #     # allowed_tokens_ids = get_allowed_tokens_ids(functions_def)
-    #     allowed_tokens_ids = None
-
-    #     next_token_id = generate_next_token(input_ids, allowed_tokens_ids)
-    #     input_ids.append(next_token_id)
-
-    #     output_tokens += model.decode([next_token_id])
+        allowed_tokens_ids = get_allowed_function_name_token_ids(state)
+        # allowed_tokens_ids = get_allowed_tokens_ids(functions_def)
 
 
-    #     print(output_tokens)
+        next_token_id = generate_next_token(input_ids, allowed_tokens_ids)
+        decoded_id = model.decode([next_token_id])
+
+        state.append_to_function_name(decoded_id)
+
+        input_ids.append(next_token_id)
+        output_tokens += decoded_id
 
 
-    #     time.sleep(0.2) # Remove this later , just to slow down generation since its going too fast now
+        print(output_tokens)
+
+
+        time.sleep(0.2) # Remove this later , just to slow down generation since its going too fast now
 
 def main() -> None:
     try:

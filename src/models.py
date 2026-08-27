@@ -58,3 +58,9 @@ class GenerationState:
         return bool(
             self.get_compatible_function_names(candidate)
         )
+
+    def append_to_function_name(self, fragment: str) -> None:
+        if not self.can_append_to_function_name(fragment):
+            raise ValueError(f"Invalid function name fragment: {fragment}")
+
+        self.current_function_name += fragment
