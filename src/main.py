@@ -5,7 +5,7 @@ import llm_sdk
 import json
 from src.json_parsing import parse_input_files
 
-from src.models import PromptInput, FunctionDefinition, GenerationState, Automate
+from src.models import PromptInput, FunctionDefinition, Automate
 
 # Remove later
 import time
@@ -108,17 +108,6 @@ def get_vocab_token_ids() -> list[int]:
     return list(tokens_ids)
 
 
-def get_allowed_function_name_token_ids(state: GenerationState, vocab_token_ids: list[int]) -> list[int]:
-
-    allowed_token_ids = []
-
-    for token_id in vocab_token_ids:
-        decoded = model.decode([token_id])
-        if decoded and state.can_append_to_function_name(decoded):
-            allowed_token_ids.append(token_id)
-
-    return allowed_token_ids
-
 
 def llm_testing(functions_def: list[FunctionDefinition], parsed_prompts: list[PromptInput]) -> None:
 
@@ -130,8 +119,7 @@ def llm_testing(functions_def: list[FunctionDefinition], parsed_prompts: list[Pr
     output_tokens = ""
 
     vocab_token_ids = get_vocab_token_ids()
-    state = GenerationState(functions_def)
-    automate = Automate(model, vocab_token_ids)
+    automate = Automate(model, vocab_token_ids, functions_def)
 
     while True:
 
@@ -141,22 +129,19 @@ def llm_testing(functions_def: list[FunctionDefinition], parsed_prompts: list[Pr
         # Get allowed token_ids for current sequence
         allowed_tokens_ids = automate.get_current_sequence_allowed_tokens()
 
-        # Get allowed token ids for functions names
-        # allowed_tokens_ids = get_allowed_function_name_token_ids(state, vocab_token_ids)
-
         # Produce logits with only those allowed ids
         next_token_id = generate_next_token(input_ids, allowed_tokens_ids)
 
         # Decode the generated next_token_id to see the text representation
         decoded_id = model.decode([next_token_id])
 
-        # Check if generated token can be applied to schema
+        # Check if generated token can be to current sequence
         automate.append_to_sequence(decoded_id)
 
         # Append the generated token to the completion string
         input_ids.append(next_token_id)
 
-        # String to show what has been completed by the llm
+        # String to show what has been completed by the LLM
         output_tokens += decoded_id
         print(output_tokens)
 

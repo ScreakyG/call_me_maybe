@@ -46,6 +46,19 @@ class GenerationState:
         return compatible_functions
 
 
+    def get_allowed_token_ids(self, vocab_token_ids: list[int], model: llm_sdk.Small_LLM_Model) -> list[int]:
+
+        allowed_token_ids: list[int] = []
+
+        for token_id in vocab_token_ids:
+            decoded = model.decode([token_id])
+            if decoded and self.can_append_to_function_name(decoded):
+                allowed_token_ids.append(token_id)
+
+        return allowed_token_ids
+
+
+
     def matches_function_name(self, name: str) -> bool:
         return any(
             function.name == name
@@ -70,14 +83,15 @@ class GenerationState:
 
 
 class Automate:
-    def __init__(self, model: llm_sdk.Small_LLM_Model, vocab_token_ids: list[int]):
+    def __init__(self, model: llm_sdk.Small_LLM_Model, vocab_token_ids: list[int], function_defs: list[FunctionDefinition]):
 
         self.model: llm_sdk.Small_LLM_Model = model
         self.vocab_token_ids: list[int] = vocab_token_ids
 
         self.sequence: list[str] = [
             "{",
-            '"name:"',
+            '"name":',
+            "function_name",
             "}"
         ]
 
@@ -85,12 +99,20 @@ class Automate:
         self.current_sequence = self.sequence[self.sequence_idx]
         self.current_generated_sequence = ""
 
-    def get_current_sequence(self) -> str:
-        return self.current_sequence
+        self.fonction_name_state: GenerationState = GenerationState(function_defs)
 
 
     def increase_sequence(self):
 
+        # Increase sequence if we got a valid function name
+        if self.current_sequence == 'function_name':
+            if self.fonction_name_state.matches_function_name(self.fonction_name_state.current_function_name):
+                self.sequence_idx += 1
+                self.current_sequence = self.sequence[self.sequence_idx]
+                self.current_generated_sequence = ""
+            return
+
+        # Increase sequence for sequence that are related to JSON struct
         if self.current_generated_sequence == self.current_sequence:
             self.sequence_idx += 1
             self.current_sequence = self.sequence[self.sequence_idx]
@@ -108,6 +130,10 @@ class Automate:
 
     def append_to_sequence(self, fragment: str) -> None:
 
+        if self.current_sequence == 'function_name':
+            self.fonction_name_state.append_to_function_name(fragment)
+            return
+
         if not self.can_append_to_sequence(fragment):
             raise ValueError(f"Invalid generated fragment: '{fragment}' for seuqence {self.current_sequence}")
 
@@ -118,6 +144,11 @@ class Automate:
 
         allowed_token_ids = []
 
+        if self.current_sequence == "function_name":
+            return self.fonction_name_state.get_allowed_token_ids(self.vocab_token_ids, self.model)
+
+
+        # Get allowed ids for JSON struct like {,",name:, ect..
         for token_id in self.vocab_token_ids:
             decoded = self.model.decode([token_id])
             if decoded and self.can_append_to_sequence(decoded):
