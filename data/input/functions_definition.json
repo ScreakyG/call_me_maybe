@@ -1,4 +1,16 @@
 [
+    {
+    "name": "fn_greet_shrek",
+    "description": "Generate a greeting message a person named Shrek.",
+    "parameters": {
+      "name": {
+        "type": "string"
+      }
+    },
+    "returns": {
+      "type": "string"
+    }
+  },
   {
     "name": "fn_add_numbers",
     "description": "Add two numbers together and return their sum.",

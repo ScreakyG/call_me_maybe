@@ -5,7 +5,7 @@ import llm_sdk
 import json
 from src.json_parsing import parse_input_files
 
-from src.models import PromptInput, FunctionDefinition, GenerationState
+from src.models import PromptInput, FunctionDefinition, GenerationState, Automate
 
 # Remove later
 import time
@@ -15,6 +15,7 @@ DEFAULT_PROMPTS_FILE = "data/input/function_calling_tests.json"
 DEFAULT_OUTPUT_FILE = "data/output/function_calling_results.json"
 
 model = llm_sdk.Small_LLM_Model()
+
 
 
 # Verify if arguments where provided and parse them
@@ -52,6 +53,9 @@ def parse_args(argv: list[str] | None = None) -> dict[str, str]:
 
 def generate_next_token(input_ids: list[int], allowed_tokens_ids: list[int] | None = None) -> int:
 
+    if not allowed_tokens_ids:
+        raise Exception("There is no allowed tokens")
+
     logits: list[float] = model.get_logits_from_input_ids(input_ids)
     # print(logits)
 
@@ -62,13 +66,6 @@ def generate_next_token(input_ids: list[int], allowed_tokens_ids: list[int] | No
             allowed_tokens_ids,
             key=logits.__getitem__
         )
-
-    else:
-        next_token_id = max(
-            range(len(logits)),
-            key=logits.__getitem__
-        )
-
 
 
     print("allowed_token_ids =", allowed_tokens_ids)
@@ -99,21 +96,9 @@ def build_prompt(functions_def: list[FunctionDefinition], user_prompt: str) -> s
     return (prompt_base)
 
 
-def get_allowed_tokens_ids(function_defs: list[FunctionDefinition]) -> list[int]:
-
-    allowed_tokens = "dummy"
-    print("allowed_tokens =", allowed_tokens)
-
-    allowed_tokens_encoded = model.encode(allowed_tokens)
-    allowed_tokens_ids: list[int] = allowed_tokens_encoded[0].tolist()
-    print("allowed_tokens_ids =", allowed_tokens_ids)
-
-
-    return list(allowed_tokens_ids)
-
-
 def get_vocab_token_ids() -> list[int]:
     vocab_file = model.get_path_to_vocab_file()
+    tokens_ids: list[int] = []
 
     with open(vocab_file, "r") as file:
         json_file = json.load(file)
@@ -123,10 +108,9 @@ def get_vocab_token_ids() -> list[int]:
     return list(tokens_ids)
 
 
-def get_allowed_function_name_token_ids(state: GenerationState) -> list[int]:
+def get_allowed_function_name_token_ids(state: GenerationState, vocab_token_ids: list[int]) -> list[int]:
 
     allowed_token_ids = []
-    vocab_token_ids = get_vocab_token_ids()
 
     for token_id in vocab_token_ids:
         decoded = model.decode([token_id])
@@ -134,6 +118,7 @@ def get_allowed_function_name_token_ids(state: GenerationState) -> list[int]:
             allowed_token_ids.append(token_id)
 
     return allowed_token_ids
+
 
 def llm_testing(functions_def: list[FunctionDefinition], parsed_prompts: list[PromptInput]) -> None:
 
@@ -144,42 +129,42 @@ def llm_testing(functions_def: list[FunctionDefinition], parsed_prompts: list[Pr
 
     output_tokens = ""
 
-
-    # state = GenerationState(functions_def)
-    # state.current_function_name = "fn_"
-    # allowed_ids = get_allowed_function_name_token_ids(state)
-
-    # print([
-    #     model.decode([token_id])
-    #     for token_id in allowed_ids
-    # ])
-
-
+    vocab_token_ids = get_vocab_token_ids()
     state = GenerationState(functions_def)
+    automate = Automate(model, vocab_token_ids)
 
     while True:
 
         print("\n==================================\n")
         # print("Current completion = ", model.decode(input_ids))
 
+        # Get allowed token_ids for current sequence
+        allowed_tokens_ids = automate.get_current_sequence_allowed_tokens()
 
-        allowed_tokens_ids = get_allowed_function_name_token_ids(state)
-        # allowed_tokens_ids = get_allowed_tokens_ids(functions_def)
+        # Get allowed token ids for functions names
+        # allowed_tokens_ids = get_allowed_function_name_token_ids(state, vocab_token_ids)
 
-
+        # Produce logits with only those allowed ids
         next_token_id = generate_next_token(input_ids, allowed_tokens_ids)
+
+        # Decode the generated next_token_id to see the text representation
         decoded_id = model.decode([next_token_id])
 
-        state.append_to_function_name(decoded_id)
+        # Check if generated token can be applied to schema
+        automate.append_to_sequence(decoded_id)
 
+        # Append the generated token to the completion string
         input_ids.append(next_token_id)
+
+        # String to show what has been completed by the llm
         output_tokens += decoded_id
-
-
         print(output_tokens)
 
+        # Remove this later , just to slow down generation since its going too fast now
+        time.sleep(0.2)
 
-        time.sleep(0.2) # Remove this later , just to slow down generation since its going too fast now
+        # Try proceed to next sequence if the current one is completed
+        automate.increase_sequence()
 
 def main() -> None:
     try:

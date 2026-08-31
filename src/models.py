@@ -1,5 +1,6 @@
 from enum import Enum
 from pydantic import BaseModel, ConfigDict, Field
+import llm_sdk
 
 
 class PromptInput(BaseModel):
@@ -59,8 +60,67 @@ class GenerationState:
             self.get_compatible_function_names(candidate)
         )
 
+
     def append_to_function_name(self, fragment: str) -> None:
         if not self.can_append_to_function_name(fragment):
             raise ValueError(f"Invalid function name fragment: {fragment}")
 
         self.current_function_name += fragment
+
+
+
+class Automate:
+    def __init__(self, model: llm_sdk.Small_LLM_Model, vocab_token_ids: list[int]):
+
+        self.model: llm_sdk.Small_LLM_Model = model
+        self.vocab_token_ids: list[int] = vocab_token_ids
+
+        self.sequence: list[str] = [
+            "{",
+            '"name:"',
+            "}"
+        ]
+
+        self.sequence_idx = 0
+        self.current_sequence = self.sequence[self.sequence_idx]
+        self.current_generated_sequence = ""
+
+    def get_current_sequence(self) -> str:
+        return self.current_sequence
+
+
+    def increase_sequence(self):
+
+        if self.current_generated_sequence == self.current_sequence:
+            self.sequence_idx += 1
+            self.current_sequence = self.sequence[self.sequence_idx]
+            self.current_generated_sequence = ""
+
+
+    def can_append_to_sequence(self, fragment: str) -> bool:
+        candidate = self.current_generated_sequence + fragment
+
+        if self.current_sequence.startswith(candidate):
+            return True
+
+        return False
+
+
+    def append_to_sequence(self, fragment: str) -> None:
+
+        if not self.can_append_to_sequence(fragment):
+            raise ValueError(f"Invalid generated fragment: '{fragment}' for seuqence {self.current_sequence}")
+
+        self.current_generated_sequence += fragment
+
+
+    def get_current_sequence_allowed_tokens(self) -> list[int]:
+
+        allowed_token_ids = []
+
+        for token_id in self.vocab_token_ids:
+            decoded = self.model.decode([token_id])
+            if decoded and self.can_append_to_sequence(decoded):
+                allowed_token_ids.append(token_id)
+
+        return allowed_token_ids
