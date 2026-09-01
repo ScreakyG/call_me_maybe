@@ -31,9 +31,6 @@ class FunctionDefinition(BaseModel):
 class GenerationState:
     def __init__(self, function_defs: list[FunctionDefinition]):
         self.function_defs = function_defs
-        self.open_quote = False
-        self.close_quote = False
-        self.output = ""
         self.current_function_name = ""
         self.selected_function: FunctionDefinition | None = None
         self.complete = False
@@ -51,13 +48,6 @@ class GenerationState:
     def get_allowed_token_ids(self, vocab_token_ids: list[int], model: llm_sdk.Small_LLM_Model) -> list[int]:
 
         allowed_token_ids: list[int] = []
-
-        if self.matches_function_name(self.current_function_name) and not self.close_quote:
-            return model.encode("\"")[0].tolist()
-
-
-        if not self.open_quote:
-            return model.encode("\"")[0].tolist()
 
         for token_id in vocab_token_ids:
             decoded = model.decode([token_id])
@@ -85,15 +75,6 @@ class GenerationState:
 
     def append_to_function_name(self, fragment: str) -> None:
 
-        if self.matches_function_name(self.current_function_name) and fragment == "\"":
-            if not self.close_quote:
-                self.close_quote = True
-                return
-
-        if not self.open_quote and fragment == "\"":
-            self.open_quote = True
-            return
-
         if not self.can_append_to_function_name(fragment):
             raise ValueError(f"Invalid function name fragment: {fragment}")
 
@@ -110,7 +91,9 @@ class Automate:
         self.sequence: list[str] = [
             "{",
             '"name":',
+            '"',
             "function_name",
+            '"',
             "}"
         ]
 
@@ -133,11 +116,10 @@ class Automate:
         # Increase sequence if we got a valid function name
         if self.current_sequence == 'function_name':
             if self.fonction_name_state.matches_function_name(self.fonction_name_state.current_function_name):
-                if self.fonction_name_state.close_quote:
-                    self.sequence_idx += 1
-                    if not self.stop_sequence():
-                        self.current_sequence = self.sequence[self.sequence_idx]
-                        self.current_generated_sequence = ""
+                self.sequence_idx += 1
+                if not self.stop_sequence():
+                    self.current_sequence = self.sequence[self.sequence_idx]
+                    self.current_generated_sequence = ""
             return
 
         # Increase sequence for sequence that are related to JSON struct
