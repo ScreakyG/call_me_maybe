@@ -102,21 +102,30 @@ class Automate:
         self.fonction_name_state: GenerationState = GenerationState(function_defs)
 
 
-    def increase_sequence(self):
+    def stop_sequence(self) -> bool:
+        if self.sequence_idx == len(self.sequence):
+            return True
+
+        return False
+
+
+    def increase_sequence(self) -> None:
 
         # Increase sequence if we got a valid function name
         if self.current_sequence == 'function_name':
             if self.fonction_name_state.matches_function_name(self.fonction_name_state.current_function_name):
                 self.sequence_idx += 1
-                self.current_sequence = self.sequence[self.sequence_idx]
-                self.current_generated_sequence = ""
+                if not self.stop_sequence():
+                    self.current_sequence = self.sequence[self.sequence_idx]
+                    self.current_generated_sequence = ""
             return
 
         # Increase sequence for sequence that are related to JSON struct
         if self.current_generated_sequence == self.current_sequence:
             self.sequence_idx += 1
-            self.current_sequence = self.sequence[self.sequence_idx]
-            self.current_generated_sequence = ""
+            if not self.stop_sequence():
+                self.current_sequence = self.sequence[self.sequence_idx]
+                self.current_generated_sequence = ""
 
 
     def can_append_to_sequence(self, fragment: str) -> bool:

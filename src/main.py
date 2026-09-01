@@ -121,7 +121,7 @@ def llm_testing(functions_def: list[FunctionDefinition], parsed_prompts: list[Pr
     vocab_token_ids = get_vocab_token_ids()
     automate = Automate(model, vocab_token_ids, functions_def)
 
-    while True:
+    while not automate.stop_sequence():
 
         print("\n==================================\n")
         # print("Current completion = ", model.decode(input_ids))
