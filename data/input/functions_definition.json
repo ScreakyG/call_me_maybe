@@ -1,7 +1,7 @@
 [
     {
     "name": "fn_greet_error",
-    "description": "Generate a greeting message for a error.",
+    "description": "This is not a good function to greet someone",
     "parameters": {
       "name": {
         "type": "string"
