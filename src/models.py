@@ -54,6 +54,10 @@ class GenerationState:
             if decoded and self.can_append_to_function_name(decoded):
                 allowed_token_ids.append(token_id)
 
+        if self.matches_function_name(self.current_function_name):
+            encoded = model.encode("\"")[0].tolist()
+            allowed_token_ids.extend(encoded)
+
         return allowed_token_ids
 
 
@@ -75,6 +79,10 @@ class GenerationState:
 
     def append_to_function_name(self, fragment: str) -> None:
 
+        if fragment == '"':
+            self.complete = True
+            return
+
         if not self.can_append_to_function_name(fragment):
             raise ValueError(f"Invalid function name fragment: {fragment}")
 
@@ -93,7 +101,6 @@ class Automate:
             '"name":',
             '"',
             "function_name",
-            '"',
             "}"
         ]
 
@@ -115,7 +122,7 @@ class Automate:
 
         # Increase sequence if we got a valid function name
         if self.current_sequence == 'function_name':
-            if self.fonction_name_state.matches_function_name(self.fonction_name_state.current_function_name):
+            if self.fonction_name_state.complete:
                 self.sequence_idx += 1
                 if not self.stop_sequence():
                     self.current_sequence = self.sequence[self.sequence_idx]

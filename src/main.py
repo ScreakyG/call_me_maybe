@@ -84,7 +84,7 @@ def build_prompt(functions_def: list[FunctionDefinition], user_prompt: str) -> s
 
     prompt_base = (
         "Choose the function that best matches the user request.\n"
-        "You must select one function from this provided list:\n"
+        "You must select one function from this provided list:\n"\
     )
 
     prompt_base += "\n".join(function.model_dump_json(indent=2) for function in functions_def)
@@ -111,7 +111,7 @@ def get_vocab_token_ids() -> list[int]:
 
 def llm_testing(functions_def: list[FunctionDefinition], parsed_prompts: list[PromptInput]) -> None:
 
-    input_tokens = build_prompt(functions_def, parsed_prompts[2].prompt + "\n")
+    input_tokens = build_prompt(functions_def, parsed_prompts[3].prompt + "\n")
     encoded = model.encode(input_tokens)
     input_ids: list[int] = encoded[0].tolist()
 

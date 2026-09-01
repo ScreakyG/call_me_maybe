@@ -1,7 +1,7 @@
 [
     {
-    "name": "fn_greet_shrek",
-    "description": "Generate a greeting message a person named Shrek.",
+    "name": "fn_greet_error",
+    "description": "Generate a greeting message for a error.",
     "parameters": {
       "name": {
         "type": "string"
