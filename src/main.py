@@ -11,6 +11,12 @@ from src.models import PromptInput, FunctionDefinition, Automate
 # Remove later
 import time
 
+RED = "\033[31m"
+GREEN = "\033[32m"
+YELLOW = "\033[33m"
+BLUE = "\033[34m"
+RESET = "\033[0m"
+
 DEFAULT_FUNCTIONS_FILE = "data/input/functions_definition.json"
 DEFAULT_PROMPTS_FILE = "data/input/function_calling_tests.json"
 DEFAULT_OUTPUT_FILE = "data/output/function_calling_results.json"
@@ -89,20 +95,15 @@ def generate_next_token(input_ids: list[int], allowed_tokens_ids: list[int] | No
     )
 
 
-    # Should only select tokens from the allowlist
-    # if allowed_tokens_ids:
-    #     next_token_id = max(
-    #         allowed_tokens_ids,
-    #         key=logits.__getitem__
-    #     )
+    for token_id in allowed_tokens_ids:
+        print(
+            f"id: {token_id} | "
+            f"decoded: {model.decode([token_id])} | "
+            f"prob: {probabilities[token_id]:.6%}"
+        )
 
-
-    print("allowed_token_ids =", allowed_tokens_ids)
-    print("Allowed tokens=", [model.decode([token]) for token in allowed_tokens_ids])
-
-
-    print("next_token_id =", next_token_id)
-    print("next_token_decoded =", model.decode([next_token_id]))
+    print(f"{GREEN}next_token_id =", next_token_id)
+    print(f"next_token_decoded = {model.decode([next_token_id])}{RESET}")
 
     return next_token_id
 
