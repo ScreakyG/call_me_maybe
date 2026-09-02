@@ -5,6 +5,7 @@ import llm_sdk
 import json
 from src.json_parsing import parse_input_files
 
+import numpy as np
 from src.models import PromptInput, FunctionDefinition, Automate
 
 # Remove later
@@ -60,12 +61,40 @@ def generate_next_token(input_ids: list[int], allowed_tokens_ids: list[int] | No
     # print(logits)
 
 
+    # Create a numpy array from logits list with float type values
+    logits_array = np.asarray(logits, dtype=float)
+    # print("logits_array =", logits_array)
+
+    # Create a array with the same shape as the src and fill values with -inf
+    masked_logits = np.full_like(logits_array, -np.inf)
+    # print("masked_logits=", masked_logits)
+
+    # Put back the og logit value for allowed_tokens_ids, NumPy allows to use list of indices perform this easily
+    masked_logits[allowed_tokens_ids] = logits_array[allowed_tokens_ids]
+    # print("allowed_tokens_logits=", masked_logits)
+
+    # We use exp to transform all logits to be superior or equal to 0 while preserving the gap between them
+    weights = np.exp(masked_logits)
+    # print("weights=", weights)
+
+    # We normalize weights to produce probabilities numbers
+    total = np.sum(weights)
+    probabilities = weights / total
+    # print("probabilities=", probabilities)
+
+    # Sampling: get a token_id from the calculated probabilities
+    next_token_id = np.random.choice(
+        len(probabilities),
+        p=probabilities
+    )
+
+
     # Should only select tokens from the allowlist
-    if allowed_tokens_ids:
-        next_token_id = max(
-            allowed_tokens_ids,
-            key=logits.__getitem__
-        )
+    # if allowed_tokens_ids:
+    #     next_token_id = max(
+    #         allowed_tokens_ids,
+    #         key=logits.__getitem__
+    #     )
 
 
     print("allowed_token_ids =", allowed_tokens_ids)
@@ -74,8 +103,6 @@ def generate_next_token(input_ids: list[int], allowed_tokens_ids: list[int] | No
 
     print("next_token_id =", next_token_id)
     print("next_token_decoded =", model.decode([next_token_id]))
-
-    # return allowed_tokens_ids[0]
 
     return next_token_id
 
