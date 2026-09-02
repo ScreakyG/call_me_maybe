@@ -147,7 +147,7 @@ def llm_testing(functions_def: list[FunctionDefinition], parsed_prompts: list[Pr
     output_tokens = ""
 
     vocab_token_ids = get_vocab_token_ids()
-    automate = Automate(model, vocab_token_ids, functions_def)
+    automate = Automate(model, parsed_prompts[3].prompt, vocab_token_ids, functions_def)
 
     while not automate.stop_sequence():
 
