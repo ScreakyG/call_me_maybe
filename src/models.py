@@ -90,6 +90,73 @@ class GenerationState:
 
 
 
+class ParametersAutomate:
+
+    def __init__(self):
+
+        # self.function_def: FunctionDefinition
+        self.complete = False
+
+        self.sequence: list[str] = [
+            '{',
+            '"s": "hello"',
+            '}'
+        ]
+
+        self.sequence_idx = 0
+        self.current_sequence = self.sequence[self.sequence_idx]
+        self.current_generated_sequence = ""
+
+
+    def stop_sequence(self) -> bool:
+        if self.sequence_idx == len(self.sequence):
+            return True
+
+        return False
+
+
+    def increase_sequence(self) -> None:
+
+        # Increase sequence for sequence that are related to JSON struct
+        if self.current_generated_sequence == self.current_sequence:
+            self.sequence_idx += 1
+            if not self.stop_sequence():
+                self.current_sequence = self.sequence[self.sequence_idx]
+                self.current_generated_sequence = ""
+            else:
+                self.complete = True
+
+
+    def can_append_to_sequence(self, fragment: str) -> bool:
+        candidate = self.current_generated_sequence + fragment
+
+        if self.current_sequence.startswith(candidate):
+            return True
+
+        return False
+
+
+    def append_to_sequence(self, fragment: str) -> None:
+
+        if not self.can_append_to_sequence(fragment):
+            raise ValueError(f"Invalid generated fragment: '{fragment}' for seuqence {self.current_sequence}")
+
+        self.current_generated_sequence += fragment
+
+
+
+    def get_allowed_token_ids(self, vocab_token_ids: list[int], model: llm_sdk.Small_LLM_Model) -> list[int]:
+
+        allowed_token_ids: list[int] = []
+
+        for token_id in vocab_token_ids:
+            decoded = model.decode([token_id])
+            if decoded and self.can_append_to_sequence(decoded):
+                allowed_token_ids.append(token_id)
+
+        return allowed_token_ids
+
+
 class Automate:
     def __init__(self, model: llm_sdk.Small_LLM_Model, prompt: str, vocab_token_ids: list[int], function_defs: list[FunctionDefinition]):
 
@@ -104,6 +171,9 @@ class Automate:
             '", '
             '"name": "',
             "function_name",
+            ", ",
+            '"parameters": ',
+            "function_params",
             "}"
         ]
 
@@ -111,7 +181,10 @@ class Automate:
         self.current_sequence = self.sequence[self.sequence_idx]
         self.current_generated_sequence = ""
 
+        # Function name and function parameters handlers
+        # They are used when the sequence is 'function_name' or 'function_params'
         self.fonction_name_state: GenerationState = GenerationState(function_defs)
+        self.function_params_state: ParametersAutomate | None = ParametersAutomate()
 
 
     def stop_sequence(self) -> bool:
@@ -140,6 +213,24 @@ class Automate:
                     self.current_generated_sequence = ""
             return
 
+
+        if self.current_sequence == 'function_params':
+            if self.function_params_state.complete:
+                self.sequence_idx += 1
+                if not self.stop_sequence():
+                    self.current_sequence = self.sequence[self.sequence_idx]
+                    self.current_generated_sequence = ""
+            else:
+                self.function_params_state.increase_sequence()
+                if self.function_params_state.complete:
+                    self.sequence_idx += 1
+                    if not self.stop_sequence():
+                        self.current_sequence = self.sequence[self.sequence_idx]
+                        self.current_generated_sequence = ""
+
+            return
+
+
         # Increase sequence for sequence that are related to JSON struct
         if self.current_generated_sequence == self.current_sequence:
             self.sequence_idx += 1
@@ -167,6 +258,10 @@ class Automate:
             self.fonction_name_state.append_to_function_name(fragment)
             return
 
+        if self.current_sequence == 'function_params':
+            self.function_params_state.append_to_sequence(fragment)
+            return
+
         if not self.can_append_to_sequence(fragment):
             raise ValueError(f"Invalid generated fragment: '{fragment}' for seuqence {self.current_sequence}")
 
@@ -186,6 +281,10 @@ class Automate:
 
         elif self.current_sequence == "function_name":
             return self.fonction_name_state.get_allowed_token_ids(self.vocab_token_ids, self.model)
+
+
+        elif self.current_sequence == "function_params":
+            return self.function_params_state.get_allowed_token_ids(self.vocab_token_ids, self.model)
 
 
         # Get allowed ids for JSON struct like {,",name:, ect..

@@ -152,6 +152,8 @@ def llm_testing(functions_def: list[FunctionDefinition], parsed_prompts: list[Pr
     while not automate.stop_sequence():
 
         print("\n==================================\n")
+        print(automate.current_sequence)
+
         # print("Current completion = ", model.decode(input_ids))
 
         # Get allowed token_ids for current sequence
@@ -174,7 +176,7 @@ def llm_testing(functions_def: list[FunctionDefinition], parsed_prompts: list[Pr
         print(output_tokens)
 
         # Remove this later , just to slow down generation since its going too fast now
-        time.sleep(0.2)
+        # time.sleep(0.2)
 
         # Try proceed to next sequence if the current one is completed
         automate.increase_sequence()
