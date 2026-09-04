@@ -11,6 +11,5 @@
 
 
 ## TODO:
-- At the moment if 2 functions have the same start like "fn_greet" and "fn_greet_shrek" the current implementation will move to the next sequence if the generated name is matching a function name, it means that in this example "fn_greet_shrek" would never be picked , this needs to be fixed
-- Previous is partially fixed but we still have a error, the model would always choose the longest function name even if it should not , we need to find a better way
-- We also need to change to way to tokens are generated using the solution the subject gives us , by putting -inf to unallowed tokens
+- Parameters function appears to work but when the LLM procudes a STRING parameters it can easily go wrong because all tokens are allowed, we may need to restrict only to some tokens or maybe apply greedy decoding only on this part.
+- On NUMBER sequence we could improve how allowed tokens are returned , for now its very basic
