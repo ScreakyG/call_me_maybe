@@ -158,7 +158,10 @@ class ParametersAutomate:
     def can_append_to_sequence(self, fragment: str) -> bool:
         candidate = self.current_generated_sequence + fragment
 
+        if self.current_sequence == 'STRING':
+            return True
 
+        # Only numbers token are allowed in a NUMBER sequence (this may need some tweaking)
         if self.current_sequence == 'NUMBER':
             if fragment in ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '"', '-']:
                 return True
@@ -191,6 +194,11 @@ class ParametersAutomate:
             self.end_param_value_sequence()
             return
 
+        # This is not working because model can produce a token that do not exactly match '"' when decoded
+        if self.current_sequence == 'STRING' and fragment == '"':
+            self.end_param_value_sequence()
+            return
+
         self.current_generated_sequence += fragment
 
 
@@ -198,6 +206,9 @@ class ParametersAutomate:
     def get_allowed_token_ids(self, vocab_token_ids: list[int], model: llm_sdk.Small_LLM_Model) -> list[int]:
 
         allowed_token_ids: list[int] = []
+
+        if self.current_sequence == 'STRING':
+            return vocab_token_ids
 
         if self.current_sequence == 'NUMBER':
             for token_id in vocab_token_ids:

@@ -95,12 +95,12 @@ def generate_next_token(input_ids: list[int], allowed_tokens_ids: list[int] | No
     )
 
 
-    for token_id in allowed_tokens_ids:
-        print(
-            f"id: {token_id} | "
-            f"decoded: {model.decode([token_id])} | "
-            f"prob: {probabilities[token_id]:.6%}"
-        )
+    # for token_id in allowed_tokens_ids:
+    #     print(
+    #         f"id: {token_id} | "
+    #         f"decoded: {model.decode([token_id])} | "
+    #         f"prob: {probabilities[token_id]:.6%}"
+    #     )
 
     print(f"{GREEN}next_token_id =", next_token_id)
     print(f"next_token_decoded = {model.decode([next_token_id])}{RESET}")
@@ -139,7 +139,7 @@ def get_vocab_token_ids() -> list[int]:
 
 def llm_testing(functions_def: list[FunctionDefinition], parsed_prompts: list[PromptInput]) -> None:
 
-    prompt = parsed_prompts[0].prompt
+    prompt = parsed_prompts[8].prompt
 
     input_tokens = build_prompt(functions_def, prompt + "\n")
     encoded = model.encode(input_tokens)
@@ -156,8 +156,8 @@ def llm_testing(functions_def: list[FunctionDefinition], parsed_prompts: list[Pr
         print("\n==================================\n")
 
         # print("Current sequence =", automate.current_sequence)
-        # if automate.function_params_state:
-        #     print("Current param sequence=", automate.function_params_state.current_sequence)
+        if automate.function_params_state:
+            print("Current param sequence=", automate.function_params_state.current_sequence)
         # print("Selection function =", automate.fonction_name_state.selected_function)
         # print("Function parameters =", automate.function_params_state.function_params)
         # print("Current completion = ", model.decode(input_ids))
@@ -182,7 +182,7 @@ def llm_testing(functions_def: list[FunctionDefinition], parsed_prompts: list[Pr
         print(output_tokens)
 
         # Remove this later , just to slow down generation since its going too fast now
-        # time.sleep(0.2)
+        time.sleep(0.2)
 
         # Try proceed to next sequence if the current one is completed
         automate.increase_sequence()
