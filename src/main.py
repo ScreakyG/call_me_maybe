@@ -95,12 +95,12 @@ def generate_next_token(input_ids: list[int], allowed_tokens_ids: list[int] | No
     )
 
 
-    # for token_id in allowed_tokens_ids:
-    #     print(
-    #         f"id: {token_id} | "
-    #         f"decoded: {model.decode([token_id])} | "
-    #         f"prob: {probabilities[token_id]:.6%}"
-    #     )
+    for token_id in allowed_tokens_ids:
+        print(
+            f"id: {token_id} | "
+            f"decoded: {model.decode([token_id])} | "
+            f"prob: {probabilities[token_id]:.6%}"
+        )
 
     print(f"{GREEN}next_token_id =", next_token_id)
     print(f"next_token_decoded = {model.decode([next_token_id])}{RESET}")
@@ -116,7 +116,6 @@ def build_prompt(functions_def: list[FunctionDefinition], user_prompt: str) -> s
     )
 
     prompt_base += "\n".join(function.model_dump_json(indent=2) for function in functions_def)
-
     prompt_base += f"\n User request: {user_prompt}"
 
     # print(prompt_base)
@@ -139,7 +138,7 @@ def get_vocab_token_ids() -> list[int]:
 
 def llm_testing(functions_def: list[FunctionDefinition], parsed_prompts: list[PromptInput]) -> None:
 
-    prompt = parsed_prompts[8].prompt
+    prompt = parsed_prompts[2].prompt
 
     input_tokens = build_prompt(functions_def, prompt + "\n")
     encoded = model.encode(input_tokens)

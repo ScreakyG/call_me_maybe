@@ -159,7 +159,9 @@ class ParametersAutomate:
         candidate = self.current_generated_sequence + fragment
 
         if self.current_sequence == 'STRING':
-            return True
+            if '"' not in fragment or fragment == '"':
+                return True
+            return False
 
         # Only numbers token are allowed in a NUMBER sequence (this may need some tweaking)
         if self.current_sequence == 'NUMBER':
@@ -208,9 +210,13 @@ class ParametersAutomate:
         allowed_token_ids: list[int] = []
 
         if self.current_sequence == 'STRING':
-            return vocab_token_ids
+            for token_id in vocab_token_ids:
+                decoded = model.decode([token_id])
+                if decoded and self.can_append_to_sequence(decoded):
+                    allowed_token_ids.append(token_id)
 
-        if self.current_sequence == 'NUMBER':
+
+        elif self.current_sequence == 'NUMBER':
             for token_id in vocab_token_ids:
                 try:
                     decoded = model.decode([token_id])
