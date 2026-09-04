@@ -139,7 +139,9 @@ def get_vocab_token_ids() -> list[int]:
 
 def llm_testing(functions_def: list[FunctionDefinition], parsed_prompts: list[PromptInput]) -> None:
 
-    input_tokens = build_prompt(functions_def, parsed_prompts[3].prompt + "\n")
+    prompt = parsed_prompts[0].prompt
+
+    input_tokens = build_prompt(functions_def, prompt + "\n")
     encoded = model.encode(input_tokens)
     input_ids: list[int] = encoded[0].tolist()
 
@@ -147,13 +149,17 @@ def llm_testing(functions_def: list[FunctionDefinition], parsed_prompts: list[Pr
     output_tokens = ""
 
     vocab_token_ids = get_vocab_token_ids()
-    automate = Automate(model, parsed_prompts[3].prompt, vocab_token_ids, functions_def)
+    automate = Automate(model, prompt, vocab_token_ids, functions_def)
 
     while not automate.stop_sequence():
 
         print("\n==================================\n")
-        print(automate.current_sequence)
 
+        # print("Current sequence =", automate.current_sequence)
+        # if automate.function_params_state:
+        #     print("Current param sequence=", automate.function_params_state.current_sequence)
+        # print("Selection function =", automate.fonction_name_state.selected_function)
+        # print("Function parameters =", automate.function_params_state.function_params)
         # print("Current completion = ", model.decode(input_ids))
 
         # Get allowed token_ids for current sequence

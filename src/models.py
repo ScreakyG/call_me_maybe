@@ -77,10 +77,20 @@ class GenerationState:
         )
 
 
+    def set_select_function(self, function_name: str) -> None:
+        if not self.matches_function_name(function_name):
+            raise ValueError(f"No functions found in function_defs for name: {function_name}")
+
+        for function in self.function_defs:
+            if function.name == function_name:
+                self.selected_function = function
+
+
     def append_to_function_name(self, fragment: str) -> None:
 
         if fragment == '"':
             self.complete = True
+            self.set_select_function(self.current_function_name)
             return
 
         if not self.can_append_to_function_name(fragment):
@@ -92,21 +102,31 @@ class GenerationState:
 
 class ParametersAutomate:
 
-    def __init__(self):
-
-        # self.function_def: FunctionDefinition
+    def __init__(self, parameters: dict[str, ParameterDefinition]):
         self.complete = False
+        self.function_params: dict[str, ParameterDefinition] = parameters
 
-        self.sequence: list[str] = [
-            '{',
-            '"s": "hello"',
-            '}'
-        ]
+        self.sequence = self.build_params_sequence()
 
         self.sequence_idx = 0
         self.current_sequence = self.sequence[self.sequence_idx]
         self.current_generated_sequence = ""
 
+
+    def build_params_sequence(self) -> list[str]:
+        params_sequence: list[str] = ['{']
+
+        for name, value in self.function_params.items():
+            params_sequence.append(f'"{name}": ')
+            params_sequence.append('"')
+            params_sequence.append(value.type.name)
+            # params_sequence.append('"')
+
+            params_sequence.append(', ')
+
+        params_sequence.append('}')
+
+        return params_sequence
 
     def stop_sequence(self) -> bool:
         if self.sequence_idx == len(self.sequence):
@@ -116,6 +136,14 @@ class ParametersAutomate:
 
 
     def increase_sequence(self) -> None:
+
+        # if self.current_sequence == "NUMBER":
+        #     self.sequence_idx += 1
+        #     if not self.stop_sequence():
+        #         self.current_sequence = self.sequence[self.sequence_idx]
+        #         self.current_generated_sequence = ""
+        #     else:
+        #         self.complete = True
 
         # Increase sequence for sequence that are related to JSON struct
         if self.current_generated_sequence == self.current_sequence:
@@ -130,16 +158,38 @@ class ParametersAutomate:
     def can_append_to_sequence(self, fragment: str) -> bool:
         candidate = self.current_generated_sequence + fragment
 
+
+        if self.current_sequence == 'NUMBER':
+            if fragment in ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '"', '-']:
+                return True
+            return False
+
+
         if self.current_sequence.startswith(candidate):
             return True
 
         return False
 
 
+    def end_param_value_sequence(self) -> None:
+        self.sequence_idx += 1
+
+        if not self.stop_sequence():
+            self.current_sequence = self.sequence[self.sequence_idx]
+            self.current_generated_sequence = ""
+        else:
+            self.complete = True
+
+
     def append_to_sequence(self, fragment: str) -> None:
 
         if not self.can_append_to_sequence(fragment):
-            raise ValueError(f"Invalid generated fragment: '{fragment}' for seuqence {self.current_sequence}")
+            raise ValueError(f"Invalid generated fragment: '{fragment}' for sequence {self.current_sequence}")
+
+        # If the LLM choose '"' in a NUMBER sequence, it means it think the number is finished and we can go the next sequence
+        if self.current_sequence == 'NUMBER' and fragment == '"':
+            self.end_param_value_sequence()
+            return
 
         self.current_generated_sequence += fragment
 
@@ -149,10 +199,20 @@ class ParametersAutomate:
 
         allowed_token_ids: list[int] = []
 
-        for token_id in vocab_token_ids:
-            decoded = model.decode([token_id])
-            if decoded and self.can_append_to_sequence(decoded):
-                allowed_token_ids.append(token_id)
+        if self.current_sequence == 'NUMBER':
+            for token_id in vocab_token_ids:
+                try:
+                    decoded = model.decode([token_id])
+                    if decoded and self.can_append_to_sequence(decoded):
+                        allowed_token_ids.append(token_id)
+                except ValueError:
+                    pass
+
+        else:
+            for token_id in vocab_token_ids:
+                decoded = model.decode([token_id])
+                if decoded and self.can_append_to_sequence(decoded):
+                    allowed_token_ids.append(token_id)
 
         return allowed_token_ids
 
@@ -184,7 +244,7 @@ class Automate:
         # Function name and function parameters handlers
         # They are used when the sequence is 'function_name' or 'function_params'
         self.fonction_name_state: GenerationState = GenerationState(function_defs)
-        self.function_params_state: ParametersAutomate | None = ParametersAutomate()
+        self.function_params_state: ParametersAutomate | None = None
 
 
     def stop_sequence(self) -> bool:
@@ -208,12 +268,14 @@ class Automate:
         if self.current_sequence == 'function_name':
             if self.fonction_name_state.complete:
                 self.sequence_idx += 1
+                self.function_params_state = ParametersAutomate(self.fonction_name_state.selected_function.parameters)
                 if not self.stop_sequence():
                     self.current_sequence = self.sequence[self.sequence_idx]
                     self.current_generated_sequence = ""
             return
 
 
+        # Increase Automate sequence if ParametersAutomate is complete, else increase ParametersAutomate sequence
         if self.current_sequence == 'function_params':
             if self.function_params_state.complete:
                 self.sequence_idx += 1
@@ -263,7 +325,7 @@ class Automate:
             return
 
         if not self.can_append_to_sequence(fragment):
-            raise ValueError(f"Invalid generated fragment: '{fragment}' for seuqence {self.current_sequence}")
+            raise ValueError(f"Invalid generated fragment: '{fragment}' for sequence {self.current_sequence}")
 
         self.current_generated_sequence += fragment
 
