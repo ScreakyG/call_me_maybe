@@ -58,7 +58,32 @@ def parse_args(argv: list[str] | None = None) -> dict[str, str]:
     return vars(parser.parse_args(argv))
 
 
-def generate_next_token(input_ids: list[int], allowed_tokens_ids: list[int] | None = None) -> int:
+def generate_probabilities(logits: list[float]) -> list[float]:
+    # We use exp to transform all logits to be superior or equal to 0 while preserving the gap between them
+    weights = np.exp(logits)
+    # We normalize weights to produce probabilities numbers
+    total = np.sum(weights)
+
+    # Will create a array containing each item weight divided by total, giving us probs
+    probabilities = weights / total
+
+    return probabilities
+
+def print_tokens_info(probabilities, vocab_token_ids: list[int], color: str = RESET) -> None:
+    for token_id in vocab_token_ids:
+        if probabilities[token_id] > 0.2:
+            print(
+                f"{color}id: {token_id} | "
+                f"decoded: {model.decode([token_id])} | "
+                f"prob: {probabilities[token_id]:.6%}{RESET}"
+            )
+
+
+def generate_next_token(
+        input_ids: list[int],
+        vocab_token_ids: list[int],
+        allowed_tokens_ids: list[int] | None = None,
+    ) -> int:
 
     if not allowed_tokens_ids:
         raise Exception("There is no allowed tokens")
@@ -66,41 +91,31 @@ def generate_next_token(input_ids: list[int], allowed_tokens_ids: list[int] | No
     logits: list[float] = model.get_logits_from_input_ids(input_ids)
     # print(logits)
 
+    # Greedy Decoding Tests
+    # return max(
+    #     allowed_tokens_ids,
+    #     key=lambda token_id: logits[token_id],
+    # )
+
 
     # Create a numpy array from logits list with float type values
     logits_array = np.asarray(logits, dtype=float)
-    # print("logits_array =", logits_array)
+
+    # Print probs for all tokens (so it's not constrained)
+    unconstrained_probs = generate_probabilities(logits_array)
+    print_tokens_info(unconstrained_probs, vocab_token_ids, YELLOW)
 
     # Create a array with the same shape as the src and fill values with -inf
     masked_logits = np.full_like(logits_array, -np.inf)
-    # print("masked_logits=", masked_logits)
 
     # Put back the og logit value for allowed_tokens_ids, NumPy allows to use list of indices perform this easily
     masked_logits[allowed_tokens_ids] = logits_array[allowed_tokens_ids]
-    # print("allowed_tokens_logits=", masked_logits)
 
-    # We use exp to transform all logits to be superior or equal to 0 while preserving the gap between them
-    weights = np.exp(masked_logits)
-    # print("weights=", weights)
-
-    # We normalize weights to produce probabilities numbers
-    total = np.sum(weights)
-    probabilities = weights / total
-    # print("probabilities=", probabilities)
+    probabilities = generate_probabilities(masked_logits)
+    print_tokens_info(probabilities, vocab_token_ids)
 
     # Sampling: get a token_id from the calculated probabilities
-    next_token_id = np.random.choice(
-        len(probabilities),
-        p=probabilities
-    )
-
-
-    # for token_id in allowed_tokens_ids:
-    #     print(
-    #         f"id: {token_id} | "
-    #         f"decoded: {model.decode([token_id])} | "
-    #         f"prob: {probabilities[token_id]:.6%}"
-    #     )
+    next_token_id = np.random.choice(len(probabilities), p=probabilities)
 
     print(f"{GREEN}next_token_id =", next_token_id)
     print(f"next_token_prob = {probabilities[next_token_id]:.6%}")
@@ -119,8 +134,6 @@ def build_prompt(functions_def: list[FunctionDefinition], user_prompt: str) -> s
 
     prompt_base += "\n".join(function.model_dump_json(indent=2) for function in functions_def)
     prompt_base += f"\n User request: {user_prompt}"
-
-    # print(prompt_base)
 
     return (prompt_base)
 
@@ -167,7 +180,7 @@ def llm_testing(functions_def: list[FunctionDefinition], parsed_prompts: list[Pr
         allowed_tokens_ids = automate.get_current_sequence_allowed_tokens()
 
         # Produce logits with only those allowed ids
-        next_token_id = generate_next_token(input_ids, allowed_tokens_ids)
+        next_token_id = generate_next_token(input_ids, vocab_token_ids, allowed_tokens_ids)
 
         # Decode the generated next_token_id to see the text representation
         decoded_id = model.decode([next_token_id])
@@ -193,10 +206,6 @@ def main() -> None:
         file_config = parse_args()
         functions_defs, parsed_prompts = parse_input_files(file_config)
 
-        # print("functions_defs:", functions_defs)
-        # print()
-        # print("prompts:", parsed_prompts)
-
     except OSError as error:
         print(f"File not found: {error.filename}", file=sys.stderr)
         print(error, file=sys.stderr)
@@ -210,14 +219,6 @@ def main() -> None:
 
 
     llm_testing(functions_defs, parsed_prompts)
-
-    # vocab_file = model.get_path_to_vocab_file()
-    # with open(model.get_path_to_vocab_file(), "r", encoding="utf-8") as file:
-        # vocab: dict[str, int] = json.load(file)
-
-    # print(vocab)
-    # print(vocab['Hello'])
-
 
 
 if __name__ == "__main__":

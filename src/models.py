@@ -10,7 +10,7 @@ class PromptInput(BaseModel):
 class ParameterType(str, Enum):
     NUMBER = "number"
     STRING = "string"
-    BOOL = "bool"
+    BOOL = "boolean"
 
 
 class ParameterDefinition(BaseModel):
