@@ -16,3 +16,4 @@
 - Continue watching the deeplearning about llms outputs
 - Prompting the LLM to generate a JSON structure is best pratice but at the moment it seems to make the performance worse and output is worse
 - Most of the time the problem happens on prompt 8, the LLM generate repetitive tokens and is kind of stuck in a loop
+- We need to fix number type parameters , in JSON number is not wrapped with double quotes
