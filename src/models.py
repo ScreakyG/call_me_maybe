@@ -117,12 +117,12 @@ class ParametersAutomate:
         params_sequence: list[str] = ['{']
 
         for name, value in self.function_params.items():
-            params_sequence.append(f'"{name}": ')
+            params_sequence.append('"')
+            params_sequence.append(f'{name}"')
+            params_sequence.append(': ')
             params_sequence.append('"')
             params_sequence.append(value.type.name)
-            # params_sequence.append('"')
-
-            params_sequence.append(', ')
+            params_sequence.append('", ')
 
         params_sequence.append('}')
 
@@ -135,15 +135,149 @@ class ParametersAutomate:
         return False
 
 
-    def increase_sequence(self) -> None:
+    def get_allowed_token_ids2(
+            self,
+            vocab_token_ids: list[int],
+            model: llm_sdk.Small_LLM_Model
+        ) -> list[int]:
 
-        # if self.current_sequence == "NUMBER":
-        #     self.sequence_idx += 1
-        #     if not self.stop_sequence():
-        #         self.current_sequence = self.sequence[self.sequence_idx]
-        #         self.current_generated_sequence = ""
-        #     else:
-        #         self.complete = True
+        allowed_tokens_ids: list[int] = []
+
+        print("Current param sequence=", self.current_sequence)
+        print("Current generated param sequence =", self.current_generated_sequence)
+
+
+        for token_id in vocab_token_ids:
+            decoded = model.decode([token_id])
+            if decoded and self.can_append_to_sequence2(decoded):
+                allowed_tokens_ids.append(token_id)
+
+        return allowed_tokens_ids
+
+
+    def split_quote_token(self, fragment: str) -> tuple[str, str]:
+        before = ''
+        after = ''
+
+        if '"' in fragment:
+            index = fragment.index('"')
+            before = fragment[:index]
+            after = fragment[index + 1:] #Exclude the quote
+
+        return before, after
+
+
+    def can_sequence_consume_fragment(
+            self,
+            sequence: str,
+            sequence_current_gen: str,
+            fragment: str
+        ) -> bool:
+
+        return sequence.startswith(sequence_current_gen + fragment)
+
+
+    def can_consume_quote_fragment(self, fragment) -> bool:
+        before, after = self.split_quote_token(fragment)
+
+        # If current sequence consume fragment with quote, the next sequence needs to be valid with whats after the quote
+        if self.can_sequence_consume_fragment(self.current_sequence, self.current_generated_sequence, before + '"'):
+            if self.can_sequence_consume_fragment(self.sequence[self.sequence_idx + 1], "", after):
+                return True
+
+        # If current sequence can't consume fragmentg with quote, the next sequence needs to be valid with '"' + after
+        if self.can_sequence_consume_fragment(self.current_sequence, self.current_generated_sequence, before):
+            if self.can_sequence_consume_fragment(self.sequence[self.sequence_idx + 1], "", '"' + after):
+                return True
+
+        return False
+
+
+    def can_append_to_sequence2(self, fragment: str) -> bool:
+
+        # All tokens are allowed for this sequence
+        if self.current_sequence == 'STRING':
+
+            if '"' in fragment:
+                before, after = self.split_quote_token(fragment)
+
+                if before.endswith("\\"):
+                    return True
+
+                if self.can_sequence_consume_fragment(self.sequence[self.sequence_idx + 1], "", '"' + after):
+                    return True
+
+                return False
+
+            return True
+
+        # For numbers only allow special tokens (this may need some rework)
+        if self.current_sequence == 'NUMBER':
+            return fragment in ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '"', '-']
+
+
+        # For schema structure only
+        # If a token has a double quote it means it's a terminating token
+        # /!\ We need to add a check if its escaped like : \"
+        if '"' in fragment:
+            return self.can_consume_quote_fragment(fragment)
+
+
+        # For structure sequences we just check if it match the schema
+        candidate = self.current_generated_sequence + fragment
+
+        if self.current_sequence.startswith(candidate):
+            return True
+
+        return False
+
+
+    def append_to_sequence2(self, fragment: str) -> None:
+
+        if self.current_sequence == 'STRING' and '"' in fragment:
+            before, after = self.split_quote_token(fragment)
+
+            if before.endswith("\\"):
+                self.current_generated_sequence += fragment
+                return
+
+            else:
+                if self.can_sequence_consume_fragment(self.sequence[self.sequence_idx + 1], "", '"' + after):
+                    self.current_generated_sequence += before
+                    self.end_param_value_sequence()
+                    self.current_generated_sequence += '"' + after
+                    return
+
+            raise Exception("TOKEN QUOTE PAS ECHAPE PLUS PAS VALIDE POUR PROCHAINE SEQUENCE")
+
+
+        if '"' in fragment and self.can_append_to_sequence2(fragment):
+            before, after = self.split_quote_token(fragment)
+
+            if self.can_sequence_consume_fragment(self.current_sequence, self.current_generated_sequence, before + '"'):
+                self.current_generated_sequence += before + '"'
+                self.end_param_value_sequence()
+
+                if self.can_sequence_consume_fragment(self.current_sequence, "", after):
+                    self.current_generated_sequence += after
+
+                return
+
+            if self.can_sequence_consume_fragment(self.current_sequence, self.current_generated_sequence, before):
+                self.current_generated_sequence += before
+                self.end_param_value_sequence()
+
+                if self.can_sequence_consume_fragment(self.current_sequence, "", '"' + after):
+                    self.current_generated_sequence += '"' + after
+
+                return
+
+
+        elif self.can_append_to_sequence2(fragment):
+            self.current_generated_sequence += fragment
+
+
+    def increase_sequence(self) -> None:
 
         # Increase sequence for sequence that are related to JSON struct
         if self.current_generated_sequence == self.current_sequence:
@@ -155,27 +289,6 @@ class ParametersAutomate:
                 self.complete = True
 
 
-    def can_append_to_sequence(self, fragment: str) -> bool:
-        candidate = self.current_generated_sequence + fragment
-
-        if self.current_sequence == 'STRING':
-            if '"' not in fragment or fragment == '"':
-                return True
-            return False
-
-        # Only numbers token are allowed in a NUMBER sequence (this may need some tweaking)
-        if self.current_sequence == 'NUMBER':
-            if fragment in ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '"', '-']:
-                return True
-            return False
-
-
-        if self.current_sequence.startswith(candidate):
-            return True
-
-        return False
-
-
     def end_param_value_sequence(self) -> None:
         self.sequence_idx += 1
 
@@ -184,54 +297,6 @@ class ParametersAutomate:
             self.current_generated_sequence = ""
         else:
             self.complete = True
-
-
-    def append_to_sequence(self, fragment: str) -> None:
-
-        if not self.can_append_to_sequence(fragment):
-            raise ValueError(f"Invalid generated fragment: '{fragment}' for sequence {self.current_sequence}")
-
-        # If the LLM choose '"' in a NUMBER sequence, it means it think the number is finished and we can go the next sequence
-        if self.current_sequence == 'NUMBER' and fragment == '"':
-            self.end_param_value_sequence()
-            return
-
-        # This is not working because model can produce a token that do not exactly match '"' when decoded
-        if self.current_sequence == 'STRING' and fragment == '"':
-            self.end_param_value_sequence()
-            return
-
-        self.current_generated_sequence += fragment
-
-
-
-    def get_allowed_token_ids(self, vocab_token_ids: list[int], model: llm_sdk.Small_LLM_Model) -> list[int]:
-
-        allowed_token_ids: list[int] = []
-
-        if self.current_sequence == 'STRING':
-            for token_id in vocab_token_ids:
-                decoded = model.decode([token_id])
-                if decoded and self.can_append_to_sequence(decoded):
-                    allowed_token_ids.append(token_id)
-
-
-        elif self.current_sequence == 'NUMBER':
-            for token_id in vocab_token_ids:
-                try:
-                    decoded = model.decode([token_id])
-                    if decoded and self.can_append_to_sequence(decoded):
-                        allowed_token_ids.append(token_id)
-                except ValueError:
-                    pass
-
-        else:
-            for token_id in vocab_token_ids:
-                decoded = model.decode([token_id])
-                if decoded and self.can_append_to_sequence(decoded):
-                    allowed_token_ids.append(token_id)
-
-        return allowed_token_ids
 
 
 class Automate:
@@ -338,7 +403,7 @@ class Automate:
             return
 
         if self.current_sequence == 'function_params':
-            self.function_params_state.append_to_sequence(fragment)
+            self.function_params_state.append_to_sequence2(fragment)
             return
 
         if not self.can_append_to_sequence(fragment):
@@ -363,7 +428,7 @@ class Automate:
 
 
         elif self.current_sequence == "function_params":
-            return self.function_params_state.get_allowed_token_ids(self.vocab_token_ids, self.model)
+            return self.function_params_state.get_allowed_token_ids2(self.vocab_token_ids, self.model)
 
 
         # Get allowed ids for JSON struct like {,",name:, ect..
