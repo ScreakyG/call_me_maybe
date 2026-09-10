@@ -116,13 +116,17 @@ class ParametersAutomate:
     def build_params_sequence(self) -> list[str]:
         params_sequence: list[str] = ['{']
 
-        for name, value in self.function_params.items():
+        for index, (name, value) in enumerate(self.function_params.items()):
             params_sequence.append('"')
             params_sequence.append(f'{name}"')
             params_sequence.append(': ')
             params_sequence.append('"')
             params_sequence.append(value.type.name)
-            params_sequence.append('", ')
+
+            if index == len(self.function_params) - 1:
+                params_sequence.append('"')
+            else:
+                params_sequence.append('", ')
 
         params_sequence.append('}')
 
@@ -220,6 +224,10 @@ class ParametersAutomate:
         # If a token has a double quote it means it's a terminating token
         # /!\ We need to add a check if its escaped like : \"
         if '"' in fragment:
+            # If we are on the last sequence we simply won't allow quote fragments
+            if self.sequence_idx == len(self.sequence) - 1:
+                return False
+
             return self.can_consume_quote_fragment(fragment)
 
 
