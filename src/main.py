@@ -152,7 +152,7 @@ def get_vocab_token_ids() -> list[int]:
 
 def llm_testing(functions_def: list[FunctionDefinition], parsed_prompts: list[PromptInput]) -> None:
 
-    prompt = parsed_prompts[8].prompt
+    prompt = parsed_prompts[1].prompt
 
     input_tokens = build_prompt(functions_def, prompt + "\n")
     encoded = model.encode(input_tokens)

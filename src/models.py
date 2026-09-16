@@ -121,13 +121,24 @@ class ParametersAutomate:
             params_sequence.append('"')
             params_sequence.append(f'{name}"')
             params_sequence.append(': ')
-            params_sequence.append('"')
-            params_sequence.append(value.type.name)
 
-            if index == len(self.function_params) - 1:
+            # If parameter is a string type we wrap it with quotes
+            if value.type.name == 'STRING':
                 params_sequence.append('"')
+                params_sequence.append(value.type.name)
+
+                if index == len(self.function_params) - 1:
+                    params_sequence.append('"')
+                else:
+                    params_sequence.append('", ')
+
+            # If parameter is bool or a number we don't wrap it
             else:
-                params_sequence.append('", ')
+                params_sequence.append(value.type.name)
+
+                if index != len(self.function_params) - 1:
+                    params_sequence.append(', ')
+
 
         params_sequence.append('}')
 
@@ -160,14 +171,14 @@ class ParametersAutomate:
         return allowed_tokens_ids
 
 
-    def split_quote_token(self, fragment: str) -> tuple[str, str]:
+    def split_token(self, fragment: str, separator: str) -> tuple[str, str]:
         before = ''
         after = ''
 
-        if '"' in fragment:
-            index = fragment.index('"')
+        if separator in fragment:
+            index = fragment.index(separator)
             before = fragment[:index]
-            after = fragment[index + 1:] #Exclude the quote
+            after = fragment[index + 1:] #Exclude the separator
 
         return before, after
 
@@ -196,7 +207,7 @@ class ParametersAutomate:
 
 
     def can_consume_quote_fragment(self, fragment) -> bool:
-        before, after = self.split_quote_token(fragment)
+        before, after = self.split_token(fragment, '"')
 
         # If current sequence consume fragment with quote, the next sequence needs to be valid with whats after the quote
         if self.can_sequence_consume_fragment(self.current_sequence, self.current_generated_sequence, before + '"'):
@@ -237,7 +248,7 @@ class ParametersAutomate:
         if self.current_sequence == 'STRING':
 
             if '"' in fragment:
-                before, after = self.split_quote_token(fragment)
+                before, after = self.split_token(fragment, '"')
 
                 if self.is_quote_escaped(before):
                     return True
@@ -251,7 +262,7 @@ class ParametersAutomate:
 
         # For numbers only allow special tokens (this may need some rework)
         if self.current_sequence == 'NUMBER':
-            return fragment in ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '"', '-']
+            return fragment in ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '-', ',', '"', " "]
 
 
         # For schema structure only
@@ -288,8 +299,18 @@ class ParametersAutomate:
 
     def append_character(self, fragment: str) -> None:
 
+        if self.current_sequence == 'NUMBER' and ',' in fragment:
+            before, after = self.split_token(fragment, ',')
+
+            if self.can_sequence_consume_fragment(self.sequence[self.sequence_idx + 1], "", ',' + after):
+                self.current_generated_sequence += before
+                self.end_param_value_sequence()
+                self.current_generated_sequence += ',' + after
+            return
+
+
         if self.current_sequence == 'STRING' and '"' in fragment:
-            before, after = self.split_quote_token(fragment)
+            before, after = self.split_token(fragment, '"')
 
             if self.is_quote_escaped(before):
                 self.current_generated_sequence += fragment
@@ -306,7 +327,7 @@ class ParametersAutomate:
 
 
         if '"' in fragment and self.can_append_character(fragment):
-            before, after = self.split_quote_token(fragment)
+            before, after = self.split_token(fragment, '"')
 
             if self.can_sequence_consume_fragment(self.current_sequence, self.current_generated_sequence, before + '"'):
                 self.current_generated_sequence += before + '"'
