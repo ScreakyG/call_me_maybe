@@ -1,3 +1,4 @@
+from copy import copy
 from enum import Enum
 from pydantic import BaseModel, ConfigDict, Field
 import llm_sdk
@@ -211,6 +212,26 @@ class ParametersAutomate:
 
 
     def can_append_to_sequence2(self, fragment: str) -> bool:
+        """Validate a whole token without changing the current state."""
+        candidate = copy(self)
+        return candidate.consume_fragment(fragment)
+
+
+    def consume_fragment(self, fragment: str) -> bool:
+        """Consume characters and advance through each completed state."""
+        if not fragment or self.complete:
+            return False
+
+        for character in fragment:
+            if self.complete or not self.can_append_character(character):
+                return False
+            self.append_character(character)
+            self.increase_sequence()
+
+        return True
+
+
+    def can_append_character(self, fragment: str) -> bool:
 
         # All tokens are allowed for this sequence
         if self.current_sequence == 'STRING':
@@ -254,6 +275,18 @@ class ParametersAutomate:
 
 
     def append_to_sequence2(self, fragment: str) -> None:
+        """Commit a token only when every character is valid."""
+        candidate = copy(self)
+        if not candidate.consume_fragment(fragment):
+            raise ValueError(f"Invalid parameter fragment: {fragment!r}")
+
+        self.sequence_idx = candidate.sequence_idx
+        self.current_sequence = candidate.current_sequence
+        self.current_generated_sequence = candidate.current_generated_sequence
+        self.complete = candidate.complete
+
+
+    def append_character(self, fragment: str) -> None:
 
         if self.current_sequence == 'STRING' and '"' in fragment:
             before, after = self.split_quote_token(fragment)
@@ -272,7 +305,7 @@ class ParametersAutomate:
             raise Exception("TOKEN QUOTE PAS ECHAPE PLUS PAS VALIDE POUR PROCHAINE SEQUENCE")
 
 
-        if '"' in fragment and self.can_append_to_sequence2(fragment):
+        if '"' in fragment and self.can_append_character(fragment):
             before, after = self.split_quote_token(fragment)
 
             if self.can_sequence_consume_fragment(self.current_sequence, self.current_generated_sequence, before + '"'):
@@ -294,11 +327,14 @@ class ParametersAutomate:
                 return
 
 
-        elif self.can_append_to_sequence2(fragment):
+        elif self.can_append_character(fragment):
             self.current_generated_sequence += fragment
 
 
     def increase_sequence(self) -> None:
+
+        if self.complete or self.current_sequence in ('STRING', 'NUMBER', 'BOOL'):
+            return
 
         # Increase sequence for sequence that are related to JSON struct
         if self.current_generated_sequence == self.current_sequence:
