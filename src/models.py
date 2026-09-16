@@ -171,6 +171,19 @@ class ParametersAutomate:
         return before, after
 
 
+    def is_quote_escaped(self, before: str) -> bool:
+        """Check backslash parity before a quote across token boundaries."""
+        prefix = self.current_generated_sequence + before
+        backslash_count = 0
+
+        for character in reversed(prefix):
+            if character != "\\":
+                break
+            backslash_count += 1
+
+        return backslash_count % 2 == 1
+
+
     def can_sequence_consume_fragment(
             self,
             sequence: str,
@@ -205,7 +218,7 @@ class ParametersAutomate:
             if '"' in fragment:
                 before, after = self.split_quote_token(fragment)
 
-                if before.endswith("\\"):
+                if self.is_quote_escaped(before):
                     return True
 
                 if self.can_sequence_consume_fragment(self.sequence[self.sequence_idx + 1], "", '"' + after):
@@ -245,7 +258,7 @@ class ParametersAutomate:
         if self.current_sequence == 'STRING' and '"' in fragment:
             before, after = self.split_quote_token(fragment)
 
-            if before.endswith("\\"):
+            if self.is_quote_escaped(before):
                 self.current_generated_sequence += fragment
                 return
 
