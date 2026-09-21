@@ -1,7 +1,11 @@
 from copy import copy
 from enum import Enum
+import re
 from pydantic import BaseModel, ConfigDict, Field
 import llm_sdk
+
+
+JSON_NUMBER = re.compile(r'-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?')
 
 
 class PromptInput(BaseModel):
@@ -260,17 +264,22 @@ class ParametersAutomate:
 
             return True
 
-        # For numbers only allow special tokens (this may need some rework)
+        # A separator is allowed only after a complete JSON number.
         if self.current_sequence == 'NUMBER':
-            authorized_token = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '-']
+            if fragment in (',', '}'):
+                return (
+                    JSON_NUMBER.fullmatch(self.current_generated_sequence)
+                    is not None
+                    and self.sequence[self.sequence_idx + 1].startswith(fragment)
+                )
 
-            if self.can_sequence_consume_fragment(self.sequence[self.sequence_idx + 1], "", "}"):
-                authorized_token.append('}')
-
-            if self.can_sequence_consume_fragment(self.sequence[self.sequence_idx + 1], "", ","):
-                authorized_token.append(',')
-
-            return fragment in authorized_token
+            candidate = self.current_generated_sequence + fragment
+            # Incomplete valid prefixes (-, 1., 1e, 1e+) become complete
+            # by adding one digit.
+            return (
+                JSON_NUMBER.fullmatch(candidate) is not None
+                or JSON_NUMBER.fullmatch(candidate + '0') is not None
+            )
 
 
         # For schema structure only
@@ -307,22 +316,11 @@ class ParametersAutomate:
 
     def append_character(self, fragment: str) -> None:
 
-        if self.current_sequence == 'NUMBER' and ',' in fragment:
-            before, after = self.split_token(fragment, ',')
-
-            if self.can_sequence_consume_fragment(self.sequence[self.sequence_idx + 1], "", ',' + after):
-                self.current_generated_sequence += before
-                self.end_param_value_sequence()
-                self.current_generated_sequence += ',' + after
-            return
-
-        if self.current_sequence == 'NUMBER' and '}' in fragment:
-            before, after = self.split_token(fragment, '}')
-
-            if self.can_sequence_consume_fragment(self.sequence[self.sequence_idx + 1], "", '}' + after):
-                self.current_generated_sequence += before
-                self.end_param_value_sequence()
-                self.current_generated_sequence += '}' + after
+        if self.current_sequence == 'NUMBER' and fragment in (',', '}'):
+            if not self.can_append_character(fragment):
+                raise ValueError(f"Invalid number terminator: {fragment!r}")
+            self.end_param_value_sequence()
+            self.current_generated_sequence = fragment
             return
 
 
