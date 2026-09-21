@@ -283,6 +283,17 @@ class ParametersAutomate:
             )
 
 
+        if self.current_sequence == 'BOOL':
+            if fragment in (',', '}'):
+                return (
+                    self.current_generated_sequence in ('true', 'false')
+                    and self.sequence[self.sequence_idx + 1].startswith(fragment)
+                )
+
+            candidate = self.current_generated_sequence + fragment
+            return 'true'.startswith(candidate) or 'false'.startswith(candidate)
+
+
         # For schema structure only
         # If a token has a double quote it means it's a terminating token
         # /!\ We need to add a check if its escaped like : \"
@@ -317,9 +328,12 @@ class ParametersAutomate:
 
     def append_character(self, fragment: str) -> None:
 
-        if self.current_sequence == 'NUMBER' and fragment in (',', '}'):
+        if (
+            self.current_sequence in ('NUMBER', 'BOOL')
+            and fragment in (',', '}')
+        ):
             if not self.can_append_character(fragment):
-                raise ValueError(f"Invalid number terminator: {fragment!r}")
+                raise ValueError(f"Invalid value terminator: {fragment!r}")
             self.end_param_value_sequence()
             self.current_generated_sequence = fragment
             return
