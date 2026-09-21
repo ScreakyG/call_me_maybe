@@ -262,7 +262,15 @@ class ParametersAutomate:
 
         # For numbers only allow special tokens (this may need some rework)
         if self.current_sequence == 'NUMBER':
-            return fragment in ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '-', ',', '"', " "]
+            authorized_token = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '-']
+
+            if self.can_sequence_consume_fragment(self.sequence[self.sequence_idx + 1], "", "}"):
+                authorized_token.append('}')
+
+            if self.can_sequence_consume_fragment(self.sequence[self.sequence_idx + 1], "", ","):
+                authorized_token.append(',')
+
+            return fragment in authorized_token
 
 
         # For schema structure only
@@ -307,6 +315,16 @@ class ParametersAutomate:
                 self.end_param_value_sequence()
                 self.current_generated_sequence += ',' + after
             return
+
+        if self.current_sequence == 'NUMBER' and '}' in fragment:
+            before, after = self.split_token(fragment, '}')
+
+            if self.can_sequence_consume_fragment(self.sequence[self.sequence_idx + 1], "", '}' + after):
+                self.current_generated_sequence += before
+                self.end_param_value_sequence()
+                self.current_generated_sequence += '}' + after
+            return
+
 
 
         if self.current_sequence == 'STRING' and '"' in fragment:
