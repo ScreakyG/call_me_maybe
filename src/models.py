@@ -1,5 +1,6 @@
 from copy import copy
 from enum import Enum
+import json
 import re
 from pydantic import BaseModel, ConfigDict, Field
 import llm_sdk
@@ -398,6 +399,7 @@ class Automate:
 
         self.model: llm_sdk.Small_LLM_Model = model
         self.prompt: str = prompt
+        self.escaped_prompt: str = json.dumps(prompt, ensure_ascii=False)[1:-1]
         self.vocab_token_ids: list[int] = vocab_token_ids
 
         self.sequence: list[str] = [
@@ -433,7 +435,7 @@ class Automate:
     def increase_sequence(self) -> None:
 
         if self.current_sequence == "prompt_input":
-            if self.current_generated_sequence == self.prompt:
+            if self.current_generated_sequence == self.escaped_prompt:
                 self.sequence_idx += 1
                 if not self.stop_sequence():
                     self.current_sequence = self.sequence[self.sequence_idx]
@@ -513,7 +515,7 @@ class Automate:
         if self.current_sequence == "prompt_input":
             for token_id in self.vocab_token_ids:
                 decoded = self.model.decode([token_id])
-                if decoded and self.prompt.startswith(self.current_generated_sequence + decoded):
+                if decoded and self.escaped_prompt.startswith(self.current_generated_sequence + decoded):
                     allowed_token_ids.append(token_id)
 
 
