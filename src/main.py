@@ -1,4 +1,5 @@
 from pydantic import ValidationError
+import os
 import argparse
 import sys
 import llm_sdk
@@ -150,9 +151,28 @@ def get_vocab_token_ids() -> list[int]:
     return list(tokens_ids)
 
 
-def llm_testing(functions_def: list[FunctionDefinition], parsed_prompts: list[PromptInput]) -> None:
+# Prettyprint the generated JSON and save it in a file
+def save_output(generated_outputs: list[str], filename: str) -> None:
 
-    prompt = parsed_prompts[8].prompt
+    outputs: list[dict] = []
+
+    for output in generated_outputs:
+        outputs.append(json.loads(output))
+
+    # If file does not exists:
+    # Check if directory exists (maybe need to check if user provided directly a filename with no dir)
+    if not os.path.exists(os.path.dirname(filename)):
+        try:
+            os.makedirs(os.path.dirname(filename))
+        except OSError as exc: # Guard against race condition
+            raise
+
+    # Overwite file or create the file if it does not exist
+    with open(filename, 'w') as f:
+        json.dump(outputs, f, indent=2)
+
+
+def llm_testing(functions_def: list[FunctionDefinition], prompt: str) -> str:
 
     input_tokens = build_prompt(functions_def, prompt + "\n")
     encoded = model.encode(input_tokens)
@@ -197,10 +217,13 @@ def llm_testing(functions_def: list[FunctionDefinition], parsed_prompts: list[Pr
         print(output_tokens)
 
         # Remove this later , just to slow down generation since its going too fast now
-        time.sleep(0.2)
+        # time.sleep(0.2)
 
         # Try proceed to next sequence if the current one is completed
         automate.increase_sequence()
+
+    return output_tokens
+
 
 def main() -> None:
     try:
@@ -219,8 +242,13 @@ def main() -> None:
         print(error, file=sys.stderr)
 
 
-    llm_testing(functions_defs, parsed_prompts)
+    outputs: list[str] = []
 
+    for prompt in parsed_prompts:
+        generated_output = llm_testing(functions_defs, prompt.prompt)
+        outputs.append(generated_output)
+
+    save_output(outputs, file_config['output'])
 
 if __name__ == "__main__":
     main()
