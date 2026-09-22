@@ -249,8 +249,20 @@ class ParametersAutomate:
 
     def can_append_character(self, fragment: str) -> bool:
 
-        # All tokens are allowed for this sequence
+        # Validate JSON escapes, including those started in previous tokens.
         if self.current_sequence == 'STRING':
+            if ord(fragment) < 0x20:
+                return False
+
+            pending_unicode = re.search(
+                r'(\\+)u[0-9a-fA-F]{0,3}$',
+                self.current_generated_sequence,
+            )
+            if pending_unicode and len(pending_unicode.group(1)) % 2 == 1:
+                return fragment in '0123456789abcdefABCDEF'
+
+            if self.is_quote_escaped(''):
+                return fragment in '"\\/bfnrtu'
 
             if '"' in fragment:
                 before, after = self.split_token(fragment, '"')

@@ -156,8 +156,15 @@ def save_output(generated_outputs: list[str], filename: str) -> None:
 
     outputs: list[dict] = []
 
-    for output in generated_outputs:
-        outputs.append(json.loads(output))
+    try:
+        for output in generated_outputs:
+            outputs.append(json.loads(output))
+
+    except Exception as error:
+        print("JSON FORMAT IS NOT OK FOR OUTPUT:")
+        print(output)
+        print(error)
+
 
     # If file does not exists:
     # Check if directory exists (maybe need to check if user provided directly a filename with no dir)
