@@ -161,23 +161,28 @@ def save_output(generated_outputs: list[str], filename: str) -> None:
             outputs.append(json.loads(output))
 
     except Exception as error:
-        print("JSON FORMAT IS NOT OK FOR OUTPUT:")
-        print(output)
-        print(error)
+        print("JSON FORMAT IS NOT OK FOR OUTPUT:", file=sys.stderr)
+        print(output, file=sys.stderr)
+        print(error, file=sys.stderr)
 
 
     # If file does not exists:
     # Check if directory exists (maybe need to check if user provided directly a filename with no dir)
-    if not os.path.exists(os.path.dirname(filename)):
-        try:
-            os.makedirs(os.path.dirname(filename))
-        except OSError as exc: # Guard against race condition
-            raise
+    if '/' in filename:
+        if not os.path.exists(os.path.dirname(filename)):
+            try:
+                os.makedirs(os.path.dirname(filename))
+            except OSError as exc: # Guard against race condition
+                print(f"Could not create folder '{filename}'")
+                return
 
-    # Overwite file or create the file if it does not exist
-    with open(filename, 'w') as f:
-        json.dump(outputs, f, indent=2)
-
+    try:
+        # Overwite file or create the file if it does not exist
+        with open(filename, 'w') as f:
+            json.dump(outputs, f, indent=2)
+    except Exception as error:
+        print(f"Could not write to file '{filename}':", file=sys.stderr)
+        print(error, file=sys.stderr)
 
 def llm_testing(functions_def: list[FunctionDefinition], prompt: str) -> str:
 
