@@ -251,6 +251,7 @@ class ParametersAutomate:
 
         # Validate JSON escapes, including those started in previous tokens.
         if self.current_sequence == 'STRING':
+            # ord() gives char Unicode, those under 0x20 are control chars (tab, newline, etc..)
             if ord(fragment) < 0x20:
                 return False
 
@@ -261,6 +262,7 @@ class ParametersAutomate:
             if pending_unicode and len(pending_unicode.group(1)) % 2 == 1:
                 return fragment in '0123456789abcdefABCDEF'
 
+            # Check if we have impair antislashes , if so we expect a char to be escaped
             if self.is_quote_escaped(''):
                 return fragment in '"\\/bfnrtu'
 
