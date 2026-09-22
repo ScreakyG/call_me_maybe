@@ -149,7 +149,6 @@ This is an illustrative expected result, not a recorded model run. The program p
 - [Pydantic documentation](https://docs.pydantic.dev/latest/): input data validation.
 - [uv documentation](https://docs.astral.sh/uv/): dependency and environment management.
 - [DeepLearning.AI](https://www.deeplearning.ai/courses/getting-structured-llm-output).
--
 
 ### AI usage
 
